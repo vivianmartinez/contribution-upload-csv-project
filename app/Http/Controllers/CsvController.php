@@ -8,6 +8,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use App\Services\CsvService;
 use SplFileObject;
+use Illuminate\Http\File;
 
 
 class CsvController extends Controller{
@@ -18,24 +19,23 @@ class CsvController extends Controller{
         $this->csvService = $csvService;
     }
 
-      /**
+    /**
      * Recoge el archivo CSV y lo almacena en el servidor.
      *
      * @param  \App\Http\Requests\CsvRequest  $request con el archivo.
      * @return \Illuminate\Http\RedirectResponse Redirige a la ruta de visualizacion, y devuelve un array con 'archivo' y 'nombreArchivo'.
      */
-    public function leer(CsvRequest $request){
-        
+    public function leerCsv(CsvRequest $request){
+   
         $archivo= $request->file('anadirArchivo'); //Accedemos al archivo 
-        $nombreArchivo = $archivo->getClientOriginalName(); //Seleccionamos el nombre del archivo 
+        $nombreArchivo = $archivo->getClientOriginalName();
 
-        $archivoAlmacenado = $archivo->store('csv');
-        $this->csvService->preprocessCsv($archivoAlmacenado);//Guardamos la ruta del archivo
+        $archivoAlmacenado =  $this->csvService->preprocesarCsv($archivo);
 
-        return redirect()->route('archivo.mostrar',
-         ['archivo' => $archivoAlmacenado,
-          'nombreArchivo'=>$nombreArchivo
-         ]);
+        return redirect()->route('mostrar.csv',
+        ['archivo' => $archivoAlmacenado,
+         'nombreArchivo'  => $nombreArchivo
+        ]);
     }
 
     /**
@@ -44,40 +44,28 @@ class CsvController extends Controller{
      * @param \Illuminate\Http\Request $request Peticion con la ruta del archivo, terminos de busqueda y opciones de vista.
      * @return \Illuminate\View\View|\Illuminate\Http\RedirectResponse Vista de visualizacion o redireccion en caso de error.
      */
-   public function mostrar(Request $request){
-        $archivo = $request->get('archivo');//Recoge la ruta del archivo a tratar
-
-        //Si el archivo no existe devuelve error al usuario en el inicio
-        if (!$archivo || !Storage::exists($archivo)) {
+   public function mostrarCsv(Request $request, $archivo){
+        if (!Storage::exists($archivo)) { //Si el archivo no existe devuelve error al usuario en el inicio
             return redirect()->route('index')->withErrors('Archivo no encontrado');
         }
 
-        $nombreArchivo = $request->get('nombreArchivo', '');//Recogemos el nombre del archivo que envio el metodo leer
-        $resultado = $this->csvService->processCsv($archivo);//Lee el archivo y lo estructura en columnas y filas
-
-        //Si el archivo esta vacio o no tiene cabeceras devuelve error al usuario en el inicio
-        if (is_null($resultado) || empty($resultado['columnas'])) {
+        $resultado = $this->csvService->procesarCsv(
+            $archivo,
+            $request->get('inputBuscar'),   
+            $request->get('opcionesBuscar'), 
+            $request->get('opcionesVista', 10) 
+        );
+        if (is_null($resultado) || empty($resultado['columnas'])) {//Si el archivo esta vacio o no tiene cabeceras devuelve error al usuario en el inicio
             return redirect()->route('index')->withErrors('El archivo está vacío o es inválido.');
         }
-
-        //Pasamos los datos por el filtro de busqueda, si no hay busqueda muestra todos los datos del archivo
-        $filasFiltradas = $this->csvService->filtrarFilas(
-            $resultado['filas'],
-            $request->get('inputBuscar'),
-            $request->get('opcionesBuscar')
-        );
-
-        $filasPorPagina = (int) $request->get('opcionesVista', 10);// Determinamos la cantidad de registros a mostrar por pagina
-        $paginador = $this->csvService->paginar($filasFiltradas, $filasPorPagina, $request); //Creamos el paginador
-
-        //Enviamos la informacion a la vista donde se muestra
-        return view('visualizacionCsv', [
+        
+        return view('visualizacionCsv', [//Enviamos la informacion a la vista donde se muestra
             'columnas'       => $resultado['columnas'],
-            'datos'          => $paginador,
+            'datos'          => $resultado['paginador'],
             'archivo'        => $archivo,
-            'nombreArchivo'  => $nombreArchivo,
-            'totalFilas'     => count($filasFiltradas),
-            'filasPorPagina' => $filasPorPagina
+            'nombreArchivo'  => $request->get('nombreArchivo'),
+            'totalFilas'     => $resultado['totalFilas'],
+            'filasPorPagina' => $request->get('opcionesVista', 10)
         ]);
     }
 
@@ -89,12 +77,12 @@ class CsvController extends Controller{
      * @param  \Illuminate\Http\Request  $request Objeto que debe contener la ruta del archivo.
      * @return \Illuminate\Http\RedirectResponse Redireccion a la ruta 'index'.
      */
-    public function eliminarCsv(Request $request){
-        $archivo = $request->input('archivo');
+    public function eliminarCsv(Request $request,$archivo){
 
         if (Storage::exists($archivo)) {
-            Storage::delete($archivo);
+            Storage::disk('local')->delete($archivo);
         }
+       
         return redirect()->route('index');
     }
 

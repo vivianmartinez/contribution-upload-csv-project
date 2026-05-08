@@ -5,6 +5,8 @@ use Illuminate\Support\Facades\Storage;
 use SplFileObject;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\File;
+
 
 /**
  * Servicio CsvService
@@ -23,9 +25,9 @@ class CsvService {
      * @param string $archivo Ruta relativa del archivo.
      * @return void
      */
-    public function preprocessCsv($archivo){
+    public function preprocesarCsv($archivo){
 
-        $archivoInput = Storage::path($archivo);//convertimos en ruta el archivo que introduce el usuario
+        $archivoInput =  $archivo->getRealPath(); //Seleccionamos la ruta real del archivo
         $separador = $this->detectarSeparador($archivoInput); //Detectamos el separador del archivo 
 
         //Creamos el objeto de lectura
@@ -33,20 +35,22 @@ class CsvService {
         $objetoLectura->setFlags(SplFileObject::READ_CSV | \SplFileObject::SKIP_EMPTY | \SplFileObject::DROP_NEW_LINE); 
         $objetoLectura->setCsvControl($separador); //explicamos que separador usa el archivo
 
-        $archivoProcesado = $archivoInput . '.tmp';//creamos un archivo temporal
-        $puntero = fopen($archivoProcesado, 'w');//Abre el archivo temporal en modo escritura
+        $archivoPreprocesado = $archivoInput . '.tmp';//creamos un archivo temporal
+        $puntero = fopen($archivoPreprocesado, 'w');//Abre el archivo temporal en modo escritura
      
         //Recorre el archivo de lectura fila por fila, normalizando el texto,y guarda en el nuevo archivo temporal cada fila con su separador(;)
         foreach ($objetoLectura as $fila) {
             if (!isset($fila[0])) continue; //Si no hay nada en la primera columna de la fila salta a la siguiente
-            $filaProcesada = array_map([$this, 'normalizarTexto'], $fila);
-            fputcsv($puntero, $filaProcesada, ';');
+            $filaPreprocesada = array_map([$this, 'normalizarTexto'], $fila);
+            fputcsv($puntero, $filaPreprocesada, ';');
         }
         fclose($puntero);//Cierra el archivo temporal
         $objetoLectura = null; 
         
-        unlink($archivoInput); //Elimina el archivo que introdujo el usuario
-        rename($archivoProcesado, $archivoInput);//Pamos el archivo temporal como el nuevo archivo
+        $archivoAlmacenado = Storage::putFile('csv', new \Illuminate\Http\File($archivoPreprocesado));//Almacenamos el archivo reescrito
+        unlink($archivoPreprocesado);
+
+        return $archivoAlmacenado; 
     }
 
 
@@ -56,9 +60,9 @@ class CsvService {
      * @param string $archivoProcesado Ruta relativa del archivo dentro del Storage.
      * @return array Un array con las cabeceras y los datos mapeados.
      */
-    public function processCsv($archivoProcesado) {
+    public function procesarCsv($archivoPreprocesado,$busqueda = null, $filtrosColumnas = null, $porPagina = 10) {
         //Recibimos la ruta del archivo y creamos el objeto de lectura para poder recorrer la informacion
-        $archivoRuta = Storage::path($archivoProcesado);
+        $archivoRuta = Storage::path($archivoPreprocesado);
         $objetoLectura = new \SplFileObject($archivoRuta);
         $objetoLectura->setFlags(SplFileObject::READ_CSV | SplFileObject::SKIP_EMPTY | SplFileObject::DROP_NEW_LINE);
         $objetoLectura->setCsvControl(';'); 
@@ -66,17 +70,27 @@ class CsvService {
         $columnas = $objetoLectura->fgetcsv();//lee la primera fila del archivo para obtener la cabecera
         $todasLasFilas = [];
 
-        while (!$objetoLectura->eof()) {//mientras no llegue al final del archivo sigue leyendo
-        $fila = $objetoLectura->fgetcsv(); //Guarda la informacion de cada fila
-        
-            if (is_array($fila) && count($fila) === count($columnas)) {//verifica que sea un fila de datos y que tenga el mismo numero de datos en cada fila que en la cabecera
+        foreach ($objetoLectura as $indice =>$fila) { 
+            if ($indice === 0) continue;
+            if (is_array($fila) && count($fila) === count($columnas)) {
                 $todasLasFilas[] = array_combine($columnas, $fila); //guarda en un array asociativo los datos de las filas con sus cabeceras, asi podremos buscar
             }
         }
+
+        //Pasamos los datos por el filtro de busqueda, si no hay busqueda muestra todos los datos del archivo
+        $filasFiltradas = $this->filtrarFilas(
+            $todasLasFilas,
+            $busqueda,
+            $filtrosColumnas
+        );
+
+        $paginador = $this->paginarCsv($filasFiltradas, $porPagina, request()); //Creamos el paginador
         
         //Devolvemos la informacion de las filas y la cabecera de la tabla
-        return ['columnas' => $columnas, 
-                'filas' => $todasLasFilas
+        return [
+            'columnas' => $columnas, 
+            'paginador'  => $paginador,
+            'totalFilas' => count($filasFiltradas)
         ];
     }
 
@@ -97,13 +111,12 @@ class CsvService {
         
         //array_filter recorre cada fila. Si la función retorna true, la fila se guarda en $filasFiltradas
         $filasFiltradas = array_filter($todasLasFilas, function($fila) use ($busqueda, $columnaFiltro) {
-         //Verificamos si la columna existe en la fila, si existe pasamos su contenido a minusculas y sino dejamos un texto vacio
+            //Verificamos si la columna existe en la fila, si existe pasamos su contenido a minusculas y sino dejamos un texto vacio
             $valorFila = isset($fila[$columnaFiltro]) ? mb_strtolower($fila[$columnaFiltro], 'UTF-8') : '';
-            
-                return str_contains($valorFila, $busqueda); //Comprobamos si el texto de busqueda esta en la fila. Retorna true (se queda la fila) o false (se elimina).
-            });
+            return str_contains($valorFila, $busqueda); //Comprobamos si el texto de busqueda esta en la fila. Retorna true (se queda la fila) o false (se elimina).
+        });
 
-        return array_values($filasFiltradas);// array_values elimina los huecos vacios del array para que no falle la paginacion, reordena.
+        return $filasFiltradas;// array_values elimina los huecos vacios del array para que no falle la paginacion, reordena.
     }
 
    
@@ -149,7 +162,7 @@ class CsvService {
      * @param \Illuminate\Http\Request $request La peticion actual para mantener los parametros de busqueda.
      * @return \Illuminate\Pagination\LengthAwarePaginator El objeto que genera la navegacion en la vista.
      */
-    public function paginar($filas, $porPagina, $request) {
+    public function paginarCsv($filas, $porPagina, $request) {
    
         $paginaActual = LengthAwarePaginator::resolveCurrentPage();//Detectamos en que pagina esta el usuario
         
