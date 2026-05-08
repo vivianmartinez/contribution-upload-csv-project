@@ -35,20 +35,21 @@ class CsvService {
         $objetoLectura->setFlags(SplFileObject::READ_CSV | \SplFileObject::SKIP_EMPTY | \SplFileObject::DROP_NEW_LINE); 
         $objetoLectura->setCsvControl($separador); //explicamos que separador usa el archivo
 
-        $archivoPreprocesado = $archivoInput . '.tmp';//creamos un archivo temporal
-        $puntero = fopen($archivoPreprocesado, 'w');//Abre el archivo temporal en modo escritura
-     
+        $stream = fopen('php://temp', 'r+');
+    
         //Recorre el archivo de lectura fila por fila, normalizando el texto,y guarda en el nuevo archivo temporal cada fila con su separador(;)
         foreach ($objetoLectura as $fila) {
             if (!isset($fila[0])) continue; //Si no hay nada en la primera columna de la fila salta a la siguiente
             $filaPreprocesada = array_map([$this, 'normalizarTexto'], $fila);
-            fputcsv($puntero, $filaPreprocesada, ';');
+            fputcsv($stream, $filaPreprocesada, ';');
         }
-        fclose($puntero);//Cierra el archivo temporal
-        $objetoLectura = null; 
+        rewind($stream);
+
+        $archivoAlmacenado = 'csv/' . uniqid() . '_' . $archivo->getClientOriginalName();
+        Storage::put($archivoAlmacenado, $stream);
         
-        $archivoAlmacenado = Storage::putFile('csv', new \Illuminate\Http\File($archivoPreprocesado));//Almacenamos el archivo reescrito
-        unlink($archivoPreprocesado);
+        fclose($stream);
+        $objetoLectura = null; 
 
         return $archivoAlmacenado; 
     }
