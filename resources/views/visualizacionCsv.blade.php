@@ -22,7 +22,7 @@
                 <label for="opcionesVista">Mostrar:</label>
                     <select name="opcionesVista" id="opcionesVista" class="opcionesVista" onchange="this.form.submit()">
                         @foreach([5, 10, 20, 50] as $vistas)
-                            <option value="{{ $vistas }}" {{ request('opcionesVista') == $vistas ? 'selected' : '' }}>
+                            <option value="{{ $vistas }}" {{ $filasPorPagina == $vistas ? 'selected' : '' }}>
                                 {{ $vistas }}
                             </option>
                         @endforeach
