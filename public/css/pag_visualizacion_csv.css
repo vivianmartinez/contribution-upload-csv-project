@@ -152,9 +152,23 @@ h4 {
 }
 
 .buscador{
-text-align: right;
-margin-bottom: 10px;
-cursor: pointer;
+  display: flex;                     
+  justify-content: space-between;    
+  align-items: center;             
+  width: 100%;                      
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+.busquedaInputs {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.controlVista {
+  display: flex;
+  align-items: center;
+  gap: 5px;
 }
 
 .barraSuperior{
@@ -164,3 +178,26 @@ cursor: pointer;
   width: 100%;
 
 }
+.btn-refrescar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 5px;
+    background-color: #f0f8fa;
+    border: 1px solid #1f8ba0;
+    border-radius: 4px;
+    color: #1f8ba0;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.btn-refrescar:hover {
+    background-color: #d1ecf1;
+}
+
+.btn-refrescar svg {
+    width: 20px;
+    height: 20px;
+}
+

@@ -25,7 +25,7 @@
     <body>
 
     <div class="contenedor_inicio">
-        <form action="{{ route('archivo.leer') }}" method="POST" enctype="multipart/form-data" >
+        <form action="{{ route('leer.csv') }}" method="POST" enctype="multipart/form-data" >
         @csrf  <!--laravel bloquea la peticion si no verifica que el formulario es legitimo-->
             <p> Bienvenido!</p>
             <p> Selecciona un archivo CSV para poder verlo</p>

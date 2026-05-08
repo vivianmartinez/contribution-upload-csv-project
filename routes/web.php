@@ -5,7 +5,7 @@ use App\Http\Controllers\CsvController;
 
 Route::get('/', function () {return view('index');})->name('index');
 
-Route::post('/archivo', [CsvController::class, 'leer'])->name('archivo.leer');
-Route::get('/archivo', [CsvController::class, 'mostrar'])->name('archivo.mostrar');
-Route::post('/eliminar', [CsvController::class, 'eliminarCsv'])->name('eliminar.csv');
+Route::post('/archivo', [CsvController::class, 'leerCsv'])->name('leer.csv'); 
+Route::get('/archivo/{archivo}', [CsvController::class, 'mostrarCsv'])->name('mostrar.csv')->where('archivo', '.*');
+Route::post('/eliminar/{archivo}', [CsvController::class, 'eliminarCsv'])->name('eliminar.csv')->where('archivo', '.*');
 
