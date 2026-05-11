@@ -49,12 +49,7 @@ class CsvController extends Controller{
             return redirect()->route('index')->withErrors('Archivo no encontrado');
         }
 
-        $resultado = $this->csvService->procesarCsv(
-            $archivo,
-            $request->get('inputBuscar'),   
-            $request->get('opcionesBuscar'), 
-            $request->get('opcionesVista', 10) 
-        );
+        $resultado = $this->csvService->procesarCsv($archivo, $request);
         if (is_null($resultado) || empty($resultado['columnas'])) {//Si el archivo esta vacio o no tiene cabeceras devuelve error al usuario en el inicio
             return redirect()->route('index')->withErrors('El archivo está vacío o es inválido.');
         }
@@ -63,7 +58,7 @@ class CsvController extends Controller{
             'columnas'       => $resultado['columnas'],
             'datos'          => $resultado['paginador'],
             'archivo'        => $archivo,
-            'nombreArchivo'  => $request->get('nombreArchivo'),
+            'nombreArchivo'  => $resultado['nombreOriginal'],
             'totalFilas'     => $resultado['totalFilas'],
             'filasPorPagina' => $request->get('opcionesVista', 10)
         ]);
