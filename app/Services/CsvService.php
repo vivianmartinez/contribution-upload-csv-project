@@ -8,6 +8,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\File;
 
 
+
 /**
  * Servicio CsvService
  * 
@@ -46,7 +47,7 @@ class CsvService {
         rewind($stream);
 
         $archivoAlmacenado = 'csv/' . uniqid() . '_' . $archivo->getClientOriginalName();
-        Storage::put($archivoAlmacenado, $stream);
+        Storage::writeStream($archivoAlmacenado, $stream);
         
         fclose($stream);
         $objetoLectura = null; 
@@ -61,7 +62,16 @@ class CsvService {
      * @param string $archivoProcesado Ruta relativa del archivo dentro del Storage.
      * @return array Un array con las cabeceras y los datos mapeados.
      */
-    public function procesarCsv($archivoPreprocesado,$busqueda = null, $filtrosColumnas = null, $porPagina = 10) {
+    public function procesarCsv($archivoPreprocesado,Request $request) {
+        //Sacamos el nombre del archivo de la ruta para tenerlo siempre en la vista
+        $nombreRuta= basename($archivoPreprocesado); 
+        $nombreArchivoFiltrado = substr($nombreRuta, strpos($nombreRuta, '_') + 1);
+
+        //Obtenermos los parametros 
+        $textoBuscar = $request->get('inputBuscar');
+        $columnaFiltro = $request->get('opcionesBuscar');
+        $porPagina =(int) $request->get('opcionesVista', 10);
+    
         //Recibimos la ruta del archivo y creamos el objeto de lectura para poder recorrer la informacion
         $archivoRuta = Storage::path($archivoPreprocesado);
         $objetoLectura = new \SplFileObject($archivoRuta);
@@ -69,31 +79,31 @@ class CsvService {
         $objetoLectura->setCsvControl(';'); 
 
         $columnas = $objetoLectura->fgetcsv();//lee la primera fila del archivo para obtener la cabecera
-        $todasLasFilas = [];
+        $filasFiltradas = [];
 
         foreach ($objetoLectura as $indice =>$fila) { 
             if ($indice === 0) continue;
             if (is_array($fila) && count($fila) === count($columnas)) {
-                $todasLasFilas[] = array_combine($columnas, $fila); //guarda en un array asociativo los datos de las filas con sus cabeceras, asi podremos buscar
+                
+                $filaAsociativa = array_combine($columnas, $fila);//guarda en un array asociativo los datos de las filas con sus cabeceras, asi podremos buscar
+                if ($this->filtrarFilas($filaAsociativa, $textoBuscar, $columnaFiltro)) {
+                    $filasFiltradas[] = $filaAsociativa;
+                }
             }
         }
 
-        //Pasamos los datos por el filtro de busqueda, si no hay busqueda muestra todos los datos del archivo
-        $filasFiltradas = $this->filtrarFilas(
-            $todasLasFilas,
-            $busqueda,
-            $filtrosColumnas
-        );
-
-        $paginador = $this->paginarCsv($filasFiltradas, $porPagina, request()); //Creamos el paginador
+        $paginador = $this->paginarCsv($filasFiltradas, $porPagina, $request); //Creamos el paginador
         
         //Devolvemos la informacion de las filas y la cabecera de la tabla
         return [
             'columnas' => $columnas, 
             'paginador'  => $paginador,
-            'totalFilas' => count($filasFiltradas)
+            'totalFilas' => count($filasFiltradas),
+            'nombreOriginal' => $nombreArchivoFiltrado
         ];
+        
     }
+
 
     
     /**
@@ -104,20 +114,14 @@ class CsvService {
      * @param string $columnaFiltro El nombre de la columna donde se realizara la busqueda.
      * @return array El array con las filas que coinciden con la busqueda.
      */
-    public function filtrarFilas($todasLasFilas, $textoBuscar, $columnaFiltro) {
-        if (empty($textoBuscar)){//Si el usuario no busca se muestra el archivo con toda la informacion
-            return $todasLasFilas;
+    public function filtrarFilas($filaAsociativa, $textoBuscar, $columnaFiltro) {
+        if (empty($textoBuscar)){//Si el usuario no busca devuelve true
+            return true;
         }  
         $busqueda = mb_strtolower($textoBuscar, 'UTF-8');//Normalizamos el texto introducido en el buscador      
-        
-        //array_filter recorre cada fila. Si la función retorna true, la fila se guarda en $filasFiltradas
-        $filasFiltradas = array_filter($todasLasFilas, function($fila) use ($busqueda, $columnaFiltro) {
-            //Verificamos si la columna existe en la fila, si existe pasamos su contenido a minusculas y sino dejamos un texto vacio
-            $valorFila = isset($fila[$columnaFiltro]) ? mb_strtolower($fila[$columnaFiltro], 'UTF-8') : '';
-            return str_contains($valorFila, $busqueda); //Comprobamos si el texto de busqueda esta en la fila. Retorna true (se queda la fila) o false (se elimina).
-        });
+        $valorFila = isset($filaAsociativa[$columnaFiltro]) ? mb_strtolower($filaAsociativa[$columnaFiltro], 'UTF-8') : '';//Verificamos si la columna existe en la fila, si existe pasamos su contenido a minusculas y sino dejamos un texto vacio
 
-        return $filasFiltradas;// array_values elimina los huecos vacios del array para que no falle la paginacion, reordena.
+        return str_contains($valorFila, $busqueda); //Comprobamos si el texto de busqueda esta en la fila. Retorna true (se queda la fila) o false (se elimina).
     }
 
    
