@@ -5,7 +5,6 @@ use Illuminate\Support\Facades\Storage;
 use SplFileObject;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Facades\File;
 
 
 
@@ -71,34 +70,67 @@ class CsvService {
         $textoBuscar = $request->get('inputBuscar');
         $columnaFiltro = $request->get('opcionesBuscar');
         $porPagina =(int) $request->get('opcionesVista', 10);
-    
+        $paginaActual = (int) LengthAwarePaginator::resolveCurrentPage();
+
+         $textoBuscarNormalizado = !empty($textoBuscar) ? mb_strtolower($textoBuscar, 'UTF-8') : ''; //Normalizamos el texto introducido en el buscador     
+
         //Recibimos la ruta del archivo y creamos el objeto de lectura para poder recorrer la informacion
         $archivoRuta = Storage::path($archivoPreprocesado);
         $objetoLectura = new \SplFileObject($archivoRuta);
         $objetoLectura->setFlags(SplFileObject::READ_CSV | SplFileObject::SKIP_EMPTY | SplFileObject::DROP_NEW_LINE);
         $objetoLectura->setCsvControl(';'); 
 
+        //Contar todos los registros del archivo
         $columnas = $objetoLectura->fgetcsv();//lee la primera fila del archivo para obtener la cabecera
-        $filasFiltradas = [];
+        $totalFilasFiltradas = 0;
 
-        foreach ($objetoLectura as $indice =>$fila) { 
+        foreach ($objetoLectura as $indice => $fila) {
             if ($indice === 0) continue;
             if (is_array($fila) && count($fila) === count($columnas)) {
-                
-                $filaAsociativa = array_combine($columnas, $fila);//guarda en un array asociativo los datos de las filas con sus cabeceras, asi podremos buscar
-                if ($this->filtrarFilas($filaAsociativa, $textoBuscar, $columnaFiltro)) {
-                    $filasFiltradas[] = $filaAsociativa;
+                $filaAsociativa = array_combine($columnas, $fila);
+                if ($this->filtrarFilas($filaAsociativa, $textoBuscarNormalizado, $columnaFiltro)) {
+                    $totalFilasFiltradas++;
                 }
             }
         }
 
-        $paginador = $this->paginarCsv($filasFiltradas, $porPagina, $request); //Creamos el paginador
+        //Gestionar la visualizacion de solo los datos necesarios en la vista
+        $inicio = ($paginaActual - 1) * $porPagina;
+
+        $filasFiltradas = [];
+        $coincidencias = 0;
+
+        $objetoLectura->rewind(); //Reiniciamos el objeto de lectura
+
+        foreach ($objetoLectura as $indice => $fila) {
+            if ($indice === 0) continue;
+            if (is_array($fila) && count($fila) === count($columnas)) {
+                $filaAsociativa = array_combine($columnas, $fila);//guarda en un array asociativo los datos de las filas con sus cabeceras, asi podremos buscar
+                
+                if ($this->filtrarFilas($filaAsociativa, $textoBuscarNormalizado, $columnaFiltro)) {
+
+                    if ($coincidencias >= $inicio && count($filasFiltradas) < $porPagina) {
+                        $filasFiltradas[] = $filaAsociativa;
+                    }
+
+                    $coincidencias++;
+                    if (count($filasFiltradas) === $porPagina) {
+                        break; 
+                    }
+                }
+
+            }
+
+        }
+
+        $objetoLectura = null;
+        $paginador = $this->paginarCsv($filasFiltradas, $totalFilasFiltradas, $porPagina, $paginaActual, $request); //Creamos el paginador
         
         //Devolvemos la informacion de las filas y la cabecera de la tabla
         return [
             'columnas' => $columnas, 
             'paginador'  => $paginador,
-            'totalFilas' => count($filasFiltradas),
+            'totalFilas' => $totalFilasFiltradas,
             'nombreOriginal' => $nombreArchivoFiltrado
         ];
         
@@ -114,14 +146,14 @@ class CsvService {
      * @param string $columnaFiltro El nombre de la columna donde se realizara la busqueda.
      * @return array El array con las filas que coinciden con la busqueda.
      */
-    public function filtrarFilas($filaAsociativa, $textoBuscar, $columnaFiltro) {
-        if (empty($textoBuscar)){//Si el usuario no busca devuelve true
+    public function filtrarFilas($filaAsociativa, $textoBuscarNormalizado, $columnaFiltro) {
+        if (empty($textoBuscarNormalizado)){//Si el usuario no busca devuelve true
             return true;
         }  
-        $busqueda = mb_strtolower($textoBuscar, 'UTF-8');//Normalizamos el texto introducido en el buscador      
+
         $valorFila = isset($filaAsociativa[$columnaFiltro]) ? mb_strtolower($filaAsociativa[$columnaFiltro], 'UTF-8') : '';//Verificamos si la columna existe en la fila, si existe pasamos su contenido a minusculas y sino dejamos un texto vacio
 
-        return str_contains($valorFila, $busqueda); //Comprobamos si el texto de busqueda esta en la fila. Retorna true (se queda la fila) o false (se elimina).
+        return str_contains($valorFila, $textoBuscarNormalizado); //Comprobamos si el texto de busqueda esta en la fila. Retorna true (se queda la fila) o false (se elimina).
     }
 
    
@@ -167,24 +199,19 @@ class CsvService {
      * @param \Illuminate\Http\Request $request La peticion actual para mantener los parametros de busqueda.
      * @return \Illuminate\Pagination\LengthAwarePaginator El objeto que genera la navegacion en la vista.
      */
-    public function paginarCsv($filas, $porPagina, $request) {
+    public function paginarCsv($datosPaginaActual, $totalFilas, $porPagina, $paginaActual, $request) {
    
-        $paginaActual = LengthAwarePaginator::resolveCurrentPage();//Detectamos en que pagina esta el usuario
-        
-        $inicio = ($paginaActual - 1) * $porPagina; //Calcula donde empieza a mostrar los datos
-        $datosPaginados = array_slice($filas, $inicio, $porPagina); // Extrae una parte de los datos usando el inicio calculado y la cantidad de datos que hay por pagina
-        
-        //Crea el objeto de Laravel para paginar
         $paginador = new LengthAwarePaginator(
-            $datosPaginados, 
-            count($filas), 
+            $datosPaginaActual, 
+            $totalFilas, 
             $porPagina, 
             $paginaActual, 
-            [
-                'path' => $request->url(),
-                'query' => $request->query(), // Mantiene los filtros de busqueda al cambiar de pagina
-            ]
+                [
+                    'path' => $request->url(),
+                    'query' => $request->query(), 
+                ]
         );
+
         //Configura que se muestren 2 numeros de pagina a cada lado de la pagina actual en la barra de navegacion
         return $paginador->onEachSide(2);
     }
