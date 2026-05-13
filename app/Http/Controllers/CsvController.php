@@ -28,13 +28,11 @@ class CsvController extends Controller{
     public function leerCsv(CsvRequest $request){
    
         $archivo= $request->file('anadirArchivo'); //Accedemos al archivo 
-        $nombreArchivo = $archivo->getClientOriginalName();
 
         $archivoAlmacenado =  $this->csvService->preprocesarCsv($archivo);
 
         return redirect()->route('mostrar.csv',
         ['archivo' => $archivoAlmacenado,
-         'nombreArchivo'  => $nombreArchivo
         ]);
     }
 
