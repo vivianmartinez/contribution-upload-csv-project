@@ -57,22 +57,62 @@ class CsvService {
 
     /**
      * Procesa un archivo CSV ya tratado y lo convierte en un array asociativo.
-     *
-     * @param string $archivoProcesado Ruta relativa del archivo dentro del Storage.
-     * @return array Un array con las cabeceras y los datos mapeados.
      */
     public function procesarCsv($archivoPreprocesado,Request $request) {
-        //Sacamos el nombre del archivo de la ruta para tenerlo siempre en la vista
-        $nombreRuta= basename($archivoPreprocesado); 
-        $nombreArchivoFiltrado = substr($nombreRuta, strpos($nombreRuta, '_') + 1);
 
+        $archivoArray = $this->convertirCsvEnArray($archivoPreprocesado);
+        $columnas = $archivoArray['columnas'];
+        $todasLasFilas = $archivoArray['filas'];
+        
         //Obtenermos los parametros 
         $textoBuscar = $request->get('inputBuscar');
         $columnaFiltro = $request->get('opcionesBuscar');
         $porPagina =(int) $request->get('opcionesVista', 10);
         $paginaActual = (int) LengthAwarePaginator::resolveCurrentPage();
 
-         $textoBuscarNormalizado = !empty($textoBuscar) ? mb_strtolower($textoBuscar, 'UTF-8') : ''; //Normalizamos el texto introducido en el buscador     
+        $paginador = $this->filtrarYPaginar($todasLasFilas, $textoBuscar, $columnaFiltro, $porPagina, $paginaActual, $request);
+        return [
+            'paginador' => $paginador,
+            'columnas'  => $columnas
+        ];
+    }
+
+
+    public function filtrarYPaginar($todasLasFilas, $textoBuscar, $columnaFiltro, $porPagina, $paginaActual, $request){
+
+        $textoBuscarNormalizado = !empty($textoBuscar) ? mb_strtolower($textoBuscar, 'UTF-8') : ''; //Normalizamos el texto introducido en el buscador     
+        $filasFiltradas = [];
+
+        foreach ($todasLasFilas as $filaAsociativa) {
+    
+            if ($this->filtrarFilas($filaAsociativa, $textoBuscarNormalizado, $columnaFiltro)) {
+                $filasFiltradas[] = $filaAsociativa;
+            }
+        }
+
+        $totalFilasFiltradas = count($filasFiltradas);
+
+        $inicio = ($paginaActual - 1) * $porPagina;
+        $datosPaginados = array_slice($filasFiltradas, $inicio, $porPagina);
+     
+        //Crea el objeto de Laravel para paginar
+        $paginador = new LengthAwarePaginator(
+            $datosPaginados, 
+            $totalFilasFiltradas, 
+            $porPagina, 
+            $paginaActual, 
+            [
+                'path' => $request->url(),
+                'query' => $request->query(), 
+            ]
+        );
+
+        return $paginador->onEachSide(2);
+    }
+
+
+
+    public function convertirCsvEnArray($archivoPreprocesado){
 
         //Recibimos la ruta del archivo y creamos el objeto de lectura para poder recorrer la informacion
         $archivoRuta = Storage::path($archivoPreprocesado);
@@ -80,71 +120,35 @@ class CsvService {
         $objetoLectura->setFlags(SplFileObject::READ_CSV | SplFileObject::SKIP_EMPTY | SplFileObject::DROP_NEW_LINE);
         $objetoLectura->setCsvControl(';'); 
 
-        //Contar todos los registros del archivo
         $columnas = $objetoLectura->fgetcsv();//lee la primera fila del archivo para obtener la cabecera
-        $totalFilasFiltradas = 0;
+        if (!$columnas) return [];
+        
+        $todasLasFilas = [];
 
-        foreach ($objetoLectura as $indice => $fila) {
+        foreach ($objetoLectura as $indice =>$fila) { 
             if ($indice === 0) continue;
             if (is_array($fila) && count($fila) === count($columnas)) {
-                $filaAsociativa = array_combine($columnas, $fila);
-                if ($this->filtrarFilas($filaAsociativa, $textoBuscarNormalizado, $columnaFiltro)) {
-                    $totalFilasFiltradas++;
-                }
-            }
-        }
-
-        //Gestionar la visualizacion de solo los datos necesarios en la vista
-        $inicio = ($paginaActual - 1) * $porPagina;
-
-        $filasFiltradas = [];
-        $coincidencias = 0;
-
-        $objetoLectura->rewind(); //Reiniciamos el objeto de lectura
-
-        foreach ($objetoLectura as $indice => $fila) {
-            if ($indice === 0) continue;
-            if (is_array($fila) && count($fila) === count($columnas)) {
-                $filaAsociativa = array_combine($columnas, $fila);//guarda en un array asociativo los datos de las filas con sus cabeceras, asi podremos buscar
                 
-                if ($this->filtrarFilas($filaAsociativa, $textoBuscarNormalizado, $columnaFiltro)) {
-
-                    if ($coincidencias >= $inicio && count($filasFiltradas) < $porPagina) {
-                        $filasFiltradas[] = $filaAsociativa;
-                    }
-
-                    $coincidencias++;
-                    if (count($filasFiltradas) === $porPagina) {
-                        break; 
-                    }
-                }
-
+                $todasLasFilas []= array_combine($columnas, $fila);//guarda en un array asociativo los datos de las filas con sus cabeceras, asi podremos buscar
             }
-
         }
 
         $objetoLectura = null;
-        $paginador = $this->paginarCsv($filasFiltradas, $totalFilasFiltradas, $porPagina, $paginaActual, $request); //Creamos el paginador
-        
-        //Devolvemos la informacion de las filas y la cabecera de la tabla
         return [
-            'columnas' => $columnas, 
-            'paginador'  => $paginador,
-            'totalFilas' => $totalFilasFiltradas,
-            'nombreOriginal' => $nombreArchivoFiltrado
+            'columnas' => $columnas,
+            'filas'    => $todasLasFilas
         ];
-        
     }
 
-
+    public function obtenerNombreArchivo($archivoPreprocesado){
+        //Sacamos el nombre del archivo de la ruta para tenerlo siempre en la vista
+        $nombreRuta= basename($archivoPreprocesado); 
+        $nombreArchivoFiltrado = substr($nombreRuta, strpos($nombreRuta, '_') + 1);
+        return $nombreArchivoFiltrado;
+    }
     
     /**
      * Filtra el array de filas basandose en un termino de busqueda y una columna seleccionada.
-     *
-     * @param array $todasLasFilas Array asociativo con los datos del archivo.
-     * @param string|null $textoBuscar El texto que el usuario desea encontrar.
-     * @param string $columnaFiltro El nombre de la columna donde se realizara la busqueda.
-     * @return array El array con las filas que coinciden con la busqueda.
      */
     public function filtrarFilas($filaAsociativa, $textoBuscarNormalizado, $columnaFiltro) {
         if (empty($textoBuscarNormalizado)){//Si el usuario no busca devuelve true
@@ -188,32 +192,6 @@ class CsvService {
         $texto = preg_replace('/[^A-Za-z0-9 áéíóúÁÉÍÓÚüÜñÑ@.€]/u', '', $texto); // solo permite letras , numero y espacios
         $texto = ucwords(mb_strtolower($texto, 'UTF-8')); //todo el texto en minuscula, menos la primera letra en mayusculas
         return $texto;
-    }
-
-
-    /**
-     * Convierte un array de datos en un objeto de paginacion de Laravel.
-     * 
-     * @param array $filas El conjunto total de filas a paginar.
-     * @param int $porPagina Cantidad de registros que se mostraran en cada pagina.
-     * @param \Illuminate\Http\Request $request La peticion actual para mantener los parametros de busqueda.
-     * @return \Illuminate\Pagination\LengthAwarePaginator El objeto que genera la navegacion en la vista.
-     */
-    public function paginarCsv($datosPaginaActual, $totalFilas, $porPagina, $paginaActual, $request) {
-   
-        $paginador = new LengthAwarePaginator(
-            $datosPaginaActual, 
-            $totalFilas, 
-            $porPagina, 
-            $paginaActual, 
-                [
-                    'path' => $request->url(),
-                    'query' => $request->query(), 
-                ]
-        );
-
-        //Configura que se muestren 2 numeros de pagina a cada lado de la pagina actual en la barra de navegacion
-        return $paginador->onEachSide(2);
     }
 
 }
