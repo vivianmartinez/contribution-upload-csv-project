@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Storage;
 use SplFileObject;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Str; 
 
 
 
@@ -61,7 +62,6 @@ class CsvService {
     public function procesarCsv($archivoPreprocesado,Request $request) {
 
         $archivoArray = $this->convertirCsvEnArray($archivoPreprocesado);
-        $columnas = $archivoArray['columnas'];
         $todasLasFilas = $archivoArray['filas'];
         
         //Obtenermos los parametros 
@@ -70,22 +70,21 @@ class CsvService {
         $porPagina =(int) $request->get('opcionesVista', 10);
         $paginaActual = (int) LengthAwarePaginator::resolveCurrentPage();
 
-        $paginador = $this->filtrarYPaginar($todasLasFilas, $textoBuscar, $columnaFiltro, $porPagina, $paginaActual, $request);
-        return [
-            'paginador' => $paginador,
-            'columnas'  => $columnas
-        ];
+        return $this->filtrarYPaginar($todasLasFilas, $textoBuscar, $columnaFiltro, $porPagina, $paginaActual, $request);
     }
 
 
     public function filtrarYPaginar($todasLasFilas, $textoBuscar, $columnaFiltro, $porPagina, $paginaActual, $request){
 
-        $textoBuscarNormalizado = !empty($textoBuscar) ? mb_strtolower($textoBuscar, 'UTF-8') : ''; //Normalizamos el texto introducido en el buscador     
+        $textoBuscarNormalizado = !empty($textoBuscar) ? mb_strtolower($textoBuscar, 'UTF-8') : ''; 
+        $textoBuscarNormalizadoSinTildes = $this->quitarAcentos($textoBuscarNormalizado);     
+
+
         $filasFiltradas = [];
 
         foreach ($todasLasFilas as $filaAsociativa) {
     
-            if ($this->filtrarFilas($filaAsociativa, $textoBuscarNormalizado, $columnaFiltro)) {
+            if ($this->filtrarFilas($filaAsociativa, $textoBuscarNormalizadoSinTildes, $columnaFiltro)) {
                 $filasFiltradas[] = $filaAsociativa;
             }
         }
@@ -150,14 +149,15 @@ class CsvService {
     /**
      * Filtra el array de filas basandose en un termino de busqueda y una columna seleccionada.
      */
-    public function filtrarFilas($filaAsociativa, $textoBuscarNormalizado, $columnaFiltro) {
-        if (empty($textoBuscarNormalizado)){//Si el usuario no busca devuelve true
+    public function filtrarFilas($filaAsociativa, $textoBuscarNormalizadoSinTildes, $columnaFiltro) {
+        if (empty($textoBuscarNormalizadoSinTildes)){//Si el usuario no busca devuelve true
             return true;
         }  
 
         $valorFila = isset($filaAsociativa[$columnaFiltro]) ? mb_strtolower($filaAsociativa[$columnaFiltro], 'UTF-8') : '';//Verificamos si la columna existe en la fila, si existe pasamos su contenido a minusculas y sino dejamos un texto vacio
+        $valorFilaSinTildes = $this->quitarAcentos($valorFila);
 
-        return str_contains($valorFila, $textoBuscarNormalizado); //Comprobamos si el texto de busqueda esta en la fila. Retorna true (se queda la fila) o false (se elimina).
+        return str_contains($valorFilaSinTildes, $textoBuscarNormalizadoSinTildes); //Comprobamos si el texto de busqueda esta en la fila. Retorna true (se queda la fila) o false (se elimina).
     }
 
    
@@ -194,4 +194,11 @@ class CsvService {
         return $texto;
     }
 
+
+    public function quitarAcentos($texto) {
+        
+        $buscar  = ['á', 'é', 'í', 'ó', 'ú', 'ü', 'Á', 'É', 'Í', 'Ó', 'Ú', 'Ü'];
+        $reemplazar = ['a', 'e', 'i', 'o', 'u', 'u', 'a', 'e', 'i', 'o', 'u', 'u'];
+        return str_replace($buscar, $reemplazar, $texto);
+    }
 }

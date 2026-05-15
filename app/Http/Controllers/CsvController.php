@@ -48,14 +48,15 @@ class CsvController extends Controller{
 
         $nombreArchivo= $this->csvService->obtenerNombreArchivo($archivo);
 
-        $resultado = $this->csvService->procesarCsv($archivo, $request);
-        $paginador = $resultado['paginador'];
-        $columnas = $resultado['columnas'];
+        $archivoArray = $this->csvService->convertirCsvEnArray($archivo);
+        $columnas = $archivoArray['columnas'];
 
-        if ($paginador->isEmpty()) {//Si el archivo esta vacio o no tiene cabeceras devuelve error al usuario en el inicio
+        if (is_null($columnas) || empty($columnas)) {
             return redirect()->route('index')->withErrors('El archivo está vacío o es inválido.');
         }
-        
+
+        $paginador = $this->csvService->procesarCsv($archivo, $request);
+
         return view('visualizacionCsv', [//Enviamos la informacion a la vista donde se muestra
             'columnas'       => $columnas,
             'datos'          => $paginador,
