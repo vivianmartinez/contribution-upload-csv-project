@@ -29,12 +29,13 @@
             <div class="busquedaInputs">
                 <input type="text" class="inputBuscar" name="inputBuscar"  value="{{ request('inputBuscar') }}" placeholder="¿Qué quieres buscar?">    
                     <select class="opcionesBuscar" name="opcionesBuscar">
-                        @foreach($columnas as $nombreColumna)
-                            <!-- Quitamos el $indice y usamos el nombre directamente -->
+                        @forelse(array_keys($datos->cabecera ?? []) as $nombreColumna)
                             <option value="{{ $nombreColumna }}" {{ request('opcionesBuscar') == $nombreColumna ? 'selected' : '' }}>
                                 {{ $nombreColumna }}
                             </option>
-                        @endforeach
+                        @empty
+                            <option value="">No hay columnas disponibles</option>
+                        @endforelse
                     </select>
                 <button type="submit">Buscar</button>
                 
@@ -49,7 +50,7 @@
     <table class="tabla">
         <thead>
             <tr>
-                @foreach ($columnas as $col)
+                @foreach (array_keys($datos->cabecera ?? []) as $col)
                     <th>{{ $col }}</th>
                 @endforeach
             </tr>
@@ -58,15 +59,15 @@
         <tbody>
             @forelse ($datos as $row)
                 <tr>
-                    @foreach ($columnas as $col)
-                        <td>{{ $row[$col] ?? '' }}</td>
+                    @foreach ($row as $valor)
+                        <td>{{ $valor }}</td>
                     @endforeach
                 </tr>
             @empty
-                <tr>
-                    <td colspan="{{ count($columnas) }}" style="text-align: center; padding: 20px;">
-                        No se encontraron registros.
-                    </td>
+                tr>
+                   <td colspan="{{ count(array_keys($datos->cabecera ?? [])) }}" style="text-align: center; padding: 20px;">
+                    No se encontraron registros.
+                </td>
                 </tr>
             @endforelse
         </tbody>
