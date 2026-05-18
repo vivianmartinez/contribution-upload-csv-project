@@ -26,7 +26,7 @@ class CsvService {
      * @param string $archivo Ruta relativa del archivo.
      * @return void
      */
-    public function preprocesarCsv($archivo){
+    public function preProcesarCsv($archivo){
 
         $archivoInput =  $archivo->getRealPath(); //Seleccionamos la ruta real del archivo
         $separador = $this->detectarSeparador($archivoInput); //Detectamos el separador del archivo 
@@ -40,7 +40,7 @@ class CsvService {
     
         //Recorre el archivo de lectura fila por fila, normalizando el texto,y guarda en el nuevo archivo temporal cada fila con su separador(;)
         foreach ($objetoLectura as $fila) {
-            if (!isset($fila[0])) continue; //Si no hay nada en la primera columna de la fila salta a la siguiente
+            if (!is_array($fila)) continue; 
             $filaPreprocesada = array_map([$this, 'normalizarTexto'], $fila);
             fputcsv($stream, $filaPreprocesada, ';');
         }
@@ -61,35 +61,20 @@ class CsvService {
      */
     public function procesarCsv($archivoPreprocesado,Request $request) {
 
-        $archivoArray = $this->convertirCsvEnArray($archivoPreprocesado);
-        $todasLasFilas = $archivoArray['filas'];
-        
-        //Obtenermos los parametros 
-        $textoBuscar = $request->get('inputBuscar');
-        $columnaFiltro = $request->get('opcionesBuscar');
-        $porPagina =(int) $request->get('opcionesVista', 10);
-        $paginaActual = (int) LengthAwarePaginator::resolveCurrentPage();
+        $todasLasFilas = $this->convertirCsvEnArray($archivoPreprocesado);
+        $filasFiltradas = $this->filtrarDatos($todasLasFilas, $request);
 
-        return $this->filtrarYPaginar($todasLasFilas, $textoBuscar, $columnaFiltro, $porPagina, $paginaActual, $request);
+        $paginador = $this->paginarCsv($filasFiltradas, $request);
+        $paginador->cabecera = $todasLasFilas[array_key_first($todasLasFilas)] ?? [];
+
+        return $paginador;
     }
 
 
-    public function filtrarYPaginar($todasLasFilas, $textoBuscar, $columnaFiltro, $porPagina, $paginaActual, $request){
+    public function paginarCsv($filasFiltradas,Request $request){
 
-        $textoBuscarNormalizado = !empty($textoBuscar) ? mb_strtolower($textoBuscar, 'UTF-8') : ''; 
-        $textoBuscarNormalizadoSinTildes = $this->quitarAcentos($textoBuscarNormalizado);     
-
-
-        $filasFiltradas = [];
-
-        foreach ($todasLasFilas as $filaAsociativa) {
-    
-            if ($this->filtrarFilas($filaAsociativa, $textoBuscarNormalizadoSinTildes, $columnaFiltro)) {
-                $filasFiltradas[] = $filaAsociativa;
-            }
-        }
-
-        $totalFilasFiltradas = count($filasFiltradas);
+        $porPagina =(int) $request->get('opcionesVista', 10);
+        $paginaActual = (int) LengthAwarePaginator::resolveCurrentPage();
 
         $inicio = ($paginaActual - 1) * $porPagina;
         $datosPaginados = array_slice($filasFiltradas, $inicio, $porPagina);
@@ -97,7 +82,7 @@ class CsvService {
         //Crea el objeto de Laravel para paginar
         $paginador = new LengthAwarePaginator(
             $datosPaginados, 
-            $totalFilasFiltradas, 
+            count($filasFiltradas), 
             $porPagina, 
             $paginaActual, 
             [
@@ -109,8 +94,6 @@ class CsvService {
         return $paginador->onEachSide(2);
     }
 
-
-
     public function convertirCsvEnArray($archivoPreprocesado){
 
         //Recibimos la ruta del archivo y creamos el objeto de lectura para poder recorrer la informacion
@@ -120,23 +103,20 @@ class CsvService {
         $objetoLectura->setCsvControl(';'); 
 
         $columnas = $objetoLectura->fgetcsv();//lee la primera fila del archivo para obtener la cabecera
-        if (!$columnas) return [];
-        
+        if (!$columnas || empty($columnas)) {
+            return []; 
+        }
+
         $todasLasFilas = [];
 
-        foreach ($objetoLectura as $indice =>$fila) { 
-            if ($indice === 0) continue;
+        while (!$objetoLectura->eof()) {
+            $fila = $objetoLectura->fgetcsv();
             if (is_array($fila) && count($fila) === count($columnas)) {
-                
-                $todasLasFilas []= array_combine($columnas, $fila);//guarda en un array asociativo los datos de las filas con sus cabeceras, asi podremos buscar
+                $todasLasFilas[] = array_combine($columnas, $fila);
             }
         }
 
-        $objetoLectura = null;
-        return [
-            'columnas' => $columnas,
-            'filas'    => $todasLasFilas
-        ];
+        return  $todasLasFilas;
     }
 
     public function obtenerNombreArchivo($archivoPreprocesado){
@@ -149,18 +129,32 @@ class CsvService {
     /**
      * Filtra el array de filas basandose en un termino de busqueda y una columna seleccionada.
      */
-    public function filtrarFilas($filaAsociativa, $textoBuscarNormalizadoSinTildes, $columnaFiltro) {
-        if (empty($textoBuscarNormalizadoSinTildes)){//Si el usuario no busca devuelve true
-            return true;
-        }  
+    public function filtrarDatos($todasLasFilas,Request $request) {
+       
+        //Obtenermos los parametros 
+        $textoBuscar = $request->get('inputBuscar');
+        $columnaFiltro = $request->get('opcionesBuscar');
+    
+        if (empty($textoBuscar)){//Si el usuario no busca devuelve true
+                return $todasLasFilas;
+            }  
 
-        $valorFila = isset($filaAsociativa[$columnaFiltro]) ? mb_strtolower($filaAsociativa[$columnaFiltro], 'UTF-8') : '';//Verificamos si la columna existe en la fila, si existe pasamos su contenido a minusculas y sino dejamos un texto vacio
-        $valorFilaSinTildes = $this->quitarAcentos($valorFila);
+        $buscar = $this->quitarAcentos(mb_strtolower($textoBuscar, 'UTF-8'));
+        $filasFiltradas = [];
 
-        return str_contains($valorFilaSinTildes, $textoBuscarNormalizadoSinTildes); //Comprobamos si el texto de busqueda esta en la fila. Retorna true (se queda la fila) o false (se elimina).
+        foreach ($todasLasFilas as $fila) {
+    
+            if (isset($fila[$columnaFiltro])) {
+                $valor = $this->quitarAcentos(mb_strtolower($fila[$columnaFiltro], 'UTF-8'));
+                        
+                if (str_contains($valor, $buscar)) {
+                    $filasFiltradas[] = $fila;
+                }
+            }
+        }
+
+        return $filasFiltradas;
     }
-
-   
 
     /**
      * Determina el separador de las columna (',' o ';') analizando la cabecera de la tabla.
@@ -193,7 +187,6 @@ class CsvService {
         $texto = ucwords(mb_strtolower($texto, 'UTF-8')); //todo el texto en minuscula, menos la primera letra en mayusculas
         return $texto;
     }
-
 
     public function quitarAcentos($texto) {
         
