@@ -1,19 +1,5 @@
 @extends('layouts.app')
-@php
-    $primeraFila = $datos->first();
-    
-    if ($primeraFila && is_array($primeraFila)) {
-        $cabeceras = collect($primeraFila)->keys();
-    } else {
-        $rutaArchivo = \Storage::path($archivo);
-        $lector= new \SplFileObject($rutaArchivo);
-        $lector->setCsvControl(';'); 
-        
-        $cabecerasOriginales = $lector->fgetcsv();
-        
-        $cabeceras = collect($cabecerasOriginales ?: []);
-    }
-@endphp
+
 
 @section('title',  $nombreArchivo)
 
@@ -44,7 +30,7 @@
             <div class="busquedaInputs">
                 <input type="text" class="inputBuscar" name="inputBuscar"  value="{{ request('inputBuscar') }}" placeholder="¿Qué quieres buscar?">    
                     <select class="opcionesBuscar" name="opcionesBuscar">
-                        @forelse($cabeceras as $nombreColumna)
+                        @forelse($datos->cabecera as $nombreColumna)
                             <option value="{{ $nombreColumna }}" {{ request('opcionesBuscar') == $nombreColumna ? 'selected' : '' }}>
                                 {{ $nombreColumna }}
                             </option>
@@ -66,7 +52,7 @@
     <table class="tabla">
         <thead>
             <tr>
-                @foreach ($cabeceras as $col)
+                @foreach ($datos->cabecera as $col)
                     <th>{{ $col }}</th>
                 @endforeach
             </tr>
@@ -81,7 +67,7 @@
                 </tr>
             @empty
                 <tr>
-                   <td colspan="{{ count($cabeceras) }}" style="text-align: center; padding: 20px;">
+                   <td colspan="{{ count($datos->cabecera) }}" style="text-align: center; padding: 20px;">
                     No se encontraron registros.
                 </td>
                 </tr>
