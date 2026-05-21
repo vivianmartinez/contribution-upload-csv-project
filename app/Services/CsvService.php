@@ -58,20 +58,21 @@ class CsvService {
 
         $stream = fopen('php://temp', 'r+');
 
-        $columnas = $objetoLectura->fgetcsv();
-        if (is_array($columnas)) {
-                $columnasUtf8= array_map([$this, 'asegurarCodificacion'], $columnas);
-                $columnasNormalizadas = array_map([$this, 'normalizarTexto'], $columnasUtf8);
-                fputcsv($stream, $columnasNormalizadas, ';');
-        }
+        foreach ($objetoLectura as $indice => $fila) {
+       
+            if (is_array($fila) && array_filter($fila) !== []) {
+                
+                $filaProcesada = array_map(function($texto) {
+                    return mb_convert_encoding($texto, 'UTF-8', 'UTF-8, ISO-8859-1, Windows-1252');
+                }, $fila);
 
-        while (!$objetoLectura->eof()) {
-                $fila = $objetoLectura->fgetcsv();
-                if (is_array($fila) && !empty($fila)) {
-                    $filaUtf8 = array_map([$this, 'asegurarCodificacion'], $fila);
-                    fputcsv($stream, $filaUtf8 , ';');
+                if ($indice === 0) {
+                    $filaProcesada = array_map([$this, 'normalizarTexto'], $filaProcesada);
                 }
+
+                fputcsv($stream, $filaProcesada, ';');
             }
+        }
 
         rewind($stream);
         return $stream;
@@ -92,6 +93,7 @@ class CsvService {
         return $paginador;
     }
 
+
     /**
     * Filtra una matriz de datos y construye el objeto de paginacion nativo de Laravel.
     *
@@ -101,6 +103,7 @@ class CsvService {
     */
     public function paginarCsv($datosCsv,Request $request){
 
+        $cabecera = !empty($datosCsv) ? array_keys(current($datosCsv)) : [];
         $datosFiltrados = $this->filtrarDatos($datosCsv, $request);
 
         $porPagina =(int) $request->get('opcionesVista', 10);
@@ -120,6 +123,7 @@ class CsvService {
                 'query' => $request->query(), 
             ]
         );
+        $paginador->cabecera = $cabecera;
 
         return $paginador->onEachSide(2);
     }
@@ -227,21 +231,6 @@ class CsvService {
         $texto = preg_replace('/[^A-Za-z0-9 áéíóúÁÉÍÓÚüÜñÑ@.€]/u', '', $texto); // solo permite letras , numero y espacios
         $texto = mb_convert_case(mb_strtolower($texto, 'UTF-8'), MB_CASE_TITLE, "UTF-8");  //todo el texto en minuscula, menos la primera letra en mayusculas
         return $texto;
-    }
-
-    /**
-    * Detecta y convierte de forma segura codificaciones antiguas a formato UTF-8.
-    *
-    * @param  mixed  $texto Valor a analizar.
-    * @return mixed Texto convertido a UTF-8 si era un string, o el valor original si no lo era.
-    */
-      private function asegurarCodificacion($texto){
-
-        if (!is_string($texto)) {
-            return $texto;
-        }
-        
-        return mb_convert_encoding($texto, 'UTF-8', 'UTF-8, ISO-8859-1, Windows-1252');
     }
 
      /**
