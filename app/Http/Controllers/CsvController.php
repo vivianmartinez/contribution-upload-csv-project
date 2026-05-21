@@ -21,7 +21,8 @@ class CsvController extends Controller{
 
     protected $csvService;
 
-    public function __construct(CsvService $csvService) {
+    public function __construct(CsvService $csvService)
+    {
         $this->csvService = $csvService;
     }
 
@@ -31,7 +32,8 @@ class CsvController extends Controller{
     * @param  \App\Http\Requests\CsvRequest  $request Peticion con las reglas de validacion del archivo.
     * @return \Illuminate\Http\RedirectResponse Redirige a la ruta de visualización pasando la ruta del archivo.
     */
-    public function leerCsv(CsvRequest $request){
+    public function leerCsv(CsvRequest $request) : RedirectResponse
+    {
    
         $archivo= $request->file('anadirArchivo'); //Accedemos al archivo 
         $archivoAlmacenado =  $this->csvService->preprocesarCsv($archivo);
@@ -49,7 +51,8 @@ class CsvController extends Controller{
     * @param  string  $archivo Ruta relativa del archivo guardado en el almacenamiento local.
     * @return \Illuminate\Http\RedirectResponse|\Illuminate\View\View Vista con los datos procesados o redireccion por error.
     */
-    public function mostrarCsv(Request $request, $archivo){
+    public function mostrarCsv(Request $request, string $archivo) : RedirectResponse|View
+    {
 
         if (!Storage::exists($archivo)) { //Si el archivo no existe devuelve error al usuario en el inicio
             return redirect()->route('index')->withErrors('Archivo no encontrado');
@@ -78,7 +81,8 @@ class CsvController extends Controller{
     * @param  string  $archivo Ruta del archivo que se desea eliminar.
     * @return \Illuminate\Http\RedirectResponse Redireccion a la ruta raiz 'index'.
     */
-    public function eliminarCsv(Request $request,$archivo){
+    public function eliminarCsv(Request $request, string $archivo) : RedirectResponse
+    {
 
         if (Storage::exists($archivo)) {
             Storage::disk('local')->delete($archivo);

@@ -26,7 +26,8 @@ class CsvService {
     * @param  \Illuminate\Http\UploadedFile  $archivo Archivo subido desde el formulario.
     * @return string Ruta relativa donde se ha guardado el nuevo archivo tratado.
     */
-    public function preProcesarCsv($archivo){
+    public function preProcesarCsv(UploadedFile $archivo) : string
+    {
 
         $archivoInput =  $archivo->getRealPath(); //Seleccionamos la ruta real del archivo
         $separador = $this->detectarSeparador($archivoInput); //Detectamos el separador del archivo 
@@ -54,7 +55,8 @@ class CsvService {
     * @param  \SplFileObject  $objetoLectura Puntero de lectura del archivo CSV original.
     * @return resource Puntero del stream temporal con los datos procesados.
     */
-    public function normalizarCsv($objetoLectura){
+    public function normalizarCsv(SplFileObject $objetoLectura) : mixed
+    {
 
         $stream = fopen('php://temp', 'r+');
 
@@ -85,7 +87,8 @@ class CsvService {
     * @param  \Illuminate\Http\Request  $request Objeto de la petición HTTP con los filtros de busqueda.
     * @return \Illuminate\Pagination\LengthAwarePaginator Instancia de paginacion con los registros correspondientes.
     */
-    public function procesarCsv($archivoPreprocesado,Request $request) {
+    public function procesarCsv(string $archivoPreprocesado,Request $request) : LengthAwarePaginator
+    {
 
         $datosCsv = $this->convertirCsvEnArray($archivoPreprocesado);
         $paginador = $this->paginarCsv($datosCsv, $request);
@@ -101,7 +104,8 @@ class CsvService {
     * @param  \Illuminate\Http\Request  $request Peticion con el numero de filas e indice de pagina.
     * @return \Illuminate\Pagination\LengthAwarePaginator Paginador configurado con las URLs de navegacion.
     */
-    public function paginarCsv($datosCsv,Request $request){
+    public function paginarCsv(array $datosCsv,Request $request): LengthAwarePaginator
+    {
 
         $cabecera = !empty($datosCsv) ? array_keys(current($datosCsv)) : [];
         $datosFiltrados = $this->filtrarDatos($datosCsv, $request);
@@ -134,7 +138,8 @@ class CsvService {
      * @param  string  $archivoPreprocesado Ruta del archivo dentro de la estructura de Storage.
      * @return array Matriz asociativa donde cada clave es el nombre de su respectiva columna.
      */
-    public function convertirCsvEnArray($archivoPreprocesado){
+    public function convertirCsvEnArray(string $archivoPreprocesado) : array
+    {
 
         //Recibimos la ruta del archivo y creamos el objeto de lectura para poder recorrer la informacion
         $archivoRuta = Storage::path($archivoPreprocesado);
@@ -165,7 +170,8 @@ class CsvService {
     * @param  string  $archivoPreprocesado Ruta del archivo almacenado 
     * @return string Nombre original limpio del archivo 
     */
-    public function obtenerNombreArchivo($archivoPreprocesado){
+    public function obtenerNombreArchivo(string $archivoPreprocesado) : string
+    {
         //Sacamos el nombre del archivo de la ruta para tenerlo siempre en la vista
         $nombreRuta= basename($archivoPreprocesado); 
         $nombreArchivoFiltrado = substr($nombreRuta, strpos($nombreRuta, '_') + 1);
@@ -179,7 +185,8 @@ class CsvService {
     * @param  \Illuminate\Http\Request  $request Peticion con el campo a buscar y la columna filtro.
     * @return array Matriz filtrada unicamente con los registros coincidentes.
     */
-    public function filtrarDatos($datosCsv,Request $request) {
+    public function filtrarDatos(array $datosCsv,Request $request) : array
+    {
        
         $textoBuscar = $request->get('inputBuscar');
         $columnaFiltro = $request->get('opcionesBuscar');
@@ -208,7 +215,8 @@ class CsvService {
     * @param string $rutaAbsoluta Ruta completa hacia el archivo.
     * @return string Devuelve el caracter separador detectado.
     */
-    public function detectarSeparador($rutaAbsoluta){  
+    public function detectarSeparador(string $rutaAbsoluta) : string
+    {  
         //Verificamos que simbolo se repite mas veces en el encabezado de la tabla para saber cual es el separador del archivo
         $objetoLectura = new SplFileObject($rutaAbsoluta);
         $encabezado = $objetoLectura->fgets();
@@ -225,7 +233,8 @@ class CsvService {
     * @param string $texto El texto original a procesar.
     * @return string Devuelve el texto normalizado y formateado.
     */
-    public function normalizarTexto($texto){
+    public function normalizarTexto(string $texto) : string
+    {
         $texto = trim($texto); //limpiamos espacios en blanco por delante y detras
         $texto = str_replace(['-', '_'], ' ', $texto); // cambio los guiones por espacios
         $texto = preg_replace('/[^A-Za-z0-9 áéíóúÁÉÍÓÚüÜñÑ@.€]/u', '', $texto); // solo permite letras , numero y espacios
@@ -233,13 +242,14 @@ class CsvService {
         return $texto;
     }
 
-     /**
+    /**
     * Reemplaza las vocales con tildes o dieresis por sus equivalentes simples en caracteres planos.
     *
     * @param  string  $texto Texto original con acentos.
     * @return string Texto limpio mapeado solo con caracteres planos.
     */
-    public function quitarAcentos($texto) {
+    public function quitarAcentos(string $texto) : string
+    {
         
         $buscar  = ['á', 'é', 'í', 'ó', 'ú', 'ü', 'Á', 'É', 'Í', 'Ó', 'Ú', 'Ü'];
         $reemplazar = ['a', 'e', 'i', 'o', 'u', 'u', 'A', 'E', 'I', 'O', 'U', 'U'];
