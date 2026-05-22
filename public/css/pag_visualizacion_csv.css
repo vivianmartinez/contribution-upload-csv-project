@@ -39,7 +39,7 @@ h4 {
 
 .tabla th {
   padding: 12px 15px;
-  text-align: centre;
+  text-align: center;
   border-right: 1px solid #e0e0e0;
 }
 
@@ -67,30 +67,6 @@ h4 {
   fill: #1f8ba0; 
 }
 
-.botonDerecha {
-  float: right;
-  display: inline-flex;
-  align-items: center;
-  padding: 5px 10px;
-}
-.botonDerecha svg {
-  width: 30px;
-  height: 30px;
-  fill: #1f8ba0; 
-}
-
-.botonIzquierda{
-  float: right;
-  display: inline-flex;
-  align-items: center;
-  padding: 5px 10px;
-}
-
-.botonIzquierda svg {
-  width: 30px;
-  height: 30px;
-  fill: #1f8ba0; 
-}
 
 /*--ERRORES--*/
 .error {
@@ -98,13 +74,36 @@ h4 {
   font-weight: bold;
 }
 
+.contenedorErrores {
+  position: absolute;
+  bottom: 100%;             
+  right: 0;             
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  margin-bottom: 6px;      
+  z-index: 10;
+  width: max-content;    
+}
+.errorBuscadorTexto {
+  color: red;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;    
+  text-align: right;    
+  display: block;
+  width: 100%;
+}
+
+
 /*--PAGINACION--*/
 .paginacion {
   display: flex;
   flex-direction: column; 
   align-items: center;   
   width: fit-content;    
-  margin-left: auto;           
+  margin-left: auto; 
+  margin-top: 5px;          
 }
 .botonesPaginacion{
   display: flex;          
@@ -112,7 +111,18 @@ h4 {
   justify-content: center; 
   gap: 5px;
 }
-.numeros-paginacion {
+.botonesPaginacion a svg {
+  width: 30px;
+  height: 30px;
+  display: block;
+  fill: #007bff;
+}
+.botonesPaginacion a.desactivado {
+  opacity: 0.3;             
+  cursor: not-allowed;      
+  pointer-events: none;     
+}
+.numerosPaginacion {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -145,9 +155,9 @@ h4 {
 }
 
 /*--SELECTOR VISTA Y BUSCADOR--*/
-.opcionesVista.inputBuscar.opcionesBuscar{
-  border-radius: 10px;
-  margin-bottom: 10px;
+.opcionesVista, .inputBuscar, .opcionesBuscar {
+  border-radius: 5px;
+
   cursor: pointer;
 }
 
@@ -163,6 +173,7 @@ h4 {
   display: flex;
   gap: 5px;
   align-items: center;
+  position: relative; 
 }
 
 .controlVista {
@@ -176,28 +187,22 @@ h4 {
   justify-content: space-between;
   align-items: center;          
   width: 100%;
-
 }
+
 .btn-refrescar {
-    display: inline-flex;
+     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 5px;
-    background-color: #f0f8fa;
-    border: 1px solid #1f8ba0;
-    border-radius: 4px;
-    color: #1f8ba0;
-    text-decoration: none;
+    background: none;    
+    border: none;        
+    padding: 0;        
     cursor: pointer;
-    transition: background 0.3s;
+    text-decoration: none;
 }
-
 .btn-refrescar:hover {
     background-color: #d1ecf1;
 }
-
 .btn-refrescar svg {
     width: 20px;
     height: 20px;
 }
-

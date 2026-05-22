@@ -1,6 +1,5 @@
 @extends('layouts.app')
 
-
 @section('title',  $nombreArchivo)
 
 @section('content')
@@ -20,7 +19,7 @@
                 <label for="opcionesVista">Mostrar:</label>
                     <select name="opcionesVista" id="opcionesVista" class="opcionesVista" onchange="this.form.submit()">
                         @foreach([5, 10, 20, 50] as $vistas)
-                            <option value="{{ $vistas }}" {{ $filasPorPagina == $vistas ? 'selected' : '' }}>
+                            <option value="{{ $vistas }}" {{ $datos->perPage() == $vistas ? 'selected' : '' }}>
                                 {{ $vistas }}
                             </option>
                         @endforeach
@@ -28,22 +27,36 @@
             </div>
 
             <div class="busquedaInputs">
-                <input type="text" class="inputBuscar" name="inputBuscar"  value="{{ request('inputBuscar') }}" placeholder="¿Qué quieres buscar?">    
-                    <select class="opcionesBuscar" name="opcionesBuscar">
-                        @forelse($datos->cabecera as $nombreColumna)
-                            <option value="{{ $nombreColumna }}" {{ request('opcionesBuscar') == $nombreColumna ? 'selected' : '' }}>
-                                {{ $nombreColumna }}
-                            </option>
-                        @empty
-                     
-                            <option value="">No hay columnas disponibles</option>
-                        @endforelse
-                    </select>
-                <button type="submit">Buscar</button>
+             
+                <input type="text" class="inputBuscar" name="inputBuscar" value="{{ request('inputBuscar') }}" placeholder="¿Qué quieres buscar?">    
+          
+                <select class="opcionesBuscar" name="opcionesBuscar" style="margin: 0;">
+                    <option value="" {{ request('opcionesBuscar') == '' ? 'selected' : '' }}>
+                        Seleccione una opción
+                    </option>
+                    @foreach($datos->cabecera as $nombreColumna)
+                        <option value="{{ $nombreColumna }}" {{ request('opcionesBuscar') == $nombreColumna ? 'selected' : '' }}>
+                            {{ $nombreColumna }}
+                        </option>
+                    @endforeach
+                </select>
+                   
+                <button type="submit" name="botonBuscar">Buscar</button>
                 
-                <a href="{{ route('mostrar.csv', ['archivo' => $archivo]) }}" class="refrescar">
-                    <svg xmlns="http://w3.org" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M3 21v-5h5"></path></svg>
+                {{-- 💡 CORREGIDO: Cambiada la clase 'refrescar' por 'btn-refrescar' para vincularse a tu CSS --}}
+                <a href="{{ route('mostrar.csv', ['archivo' => $archivo]) }}" class="btn-refrescar">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M3 21v-5h5"></path></svg>
                 </a>
+
+                 <div class="contenedorErrores">
+                    @error('inputBuscar')
+                        <span class="errorBuscadorTexto">{{ $message }}</span>
+                    @enderror
+
+                    @error('opcionesBuscar')
+                        <span class="errorBuscadorTexto">{{ $message }}</span>
+                    @enderror
+                </div>
             </div>
         </form>
     </div>
@@ -69,7 +82,7 @@
                 <tr>
                    <td colspan="{{ count($datos->cabecera) }}" style="text-align: center; padding: 20px;">
                     No se encontraron registros.
-                </td>
+                   </td>
                 </tr>
             @endforelse
         </tbody>
@@ -78,13 +91,11 @@
 <!--BARRA INFERIOR:CONTADOR Y PAGINACION -->
     <div class="barraInferior"> 
         <p class="contadorFilas">
-            {{ $totalFilas }} registros
+            {{ $datos->total() }} registros
         </p>
 
         <div class="paginacion">
-          {{ $datos->appends(request()->query())->links('partials.paginacion') }}
+          {{ $datos->links('partials.paginacion') }}
         </div>
     </div>
 @endsection
-
-  
