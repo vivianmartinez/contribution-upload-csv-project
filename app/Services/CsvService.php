@@ -2,6 +2,7 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Http\UploadedFile; 
 use SplFileObject;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -30,6 +31,10 @@ class CsvService {
     {
 
         $archivoInput =  $archivo->getRealPath(); //Seleccionamos la ruta real del archivo
+        if (!$archivoInput) {
+            throw new \Exception("No se ha podido acceder a la ruta temporal del archivo.");
+        }
+
         $separador = $this->detectarSeparador($archivoInput); //Detectamos el separador del archivo 
 
         //Creamos el objeto de lectura
@@ -57,7 +62,6 @@ class CsvService {
     */
     public function normalizarCsv(SplFileObject $objetoLectura) : mixed
     {
-
         $stream = fopen('php://temp', 'r+');
 
         foreach ($objetoLectura as $indice => $fila) {
@@ -89,8 +93,11 @@ class CsvService {
     */
     public function procesarCsv(string $archivoPreprocesado,Request $request) : LengthAwarePaginator
     {
-
         $datosCsv = $this->convertirCsvEnArray($archivoPreprocesado);
+        if (empty($datosCsv)) {
+            throw new \Exception("El archivo CSV no contiene registros de datos para mostrar.");
+        }
+
         $paginador = $this->paginarCsv($datosCsv, $request);
 
         return $paginador;
@@ -148,17 +155,24 @@ class CsvService {
         $objetoLectura->setCsvControl(';'); 
 
         $columnas = $objetoLectura->fgetcsv();//lee la primera fila del archivo para obtener la cabecera
-        if (!$columnas || empty($columnas)) {
-            return []; 
+        if (!$columnas || empty(array_filter($columnas))) {
+            throw new \Exception("El archivo CSV no contiene una estructura de cabeceras válida."); 
         }
 
         $todasLasFilas = [];
 
         while (!$objetoLectura->eof()) {
             $fila = $objetoLectura->fgetcsv();
-            if (is_array($fila) && count($fila) === count($columnas)) {
-                $todasLasFilas[] = array_combine($columnas, $fila);
+
+            if ($fila === [null] || $fila === false || empty(array_filter($fila))) {
+                continue;
+            }   
+            if (count($fila) !== count($columnas)) {
+                throw new \Exception("El archivo contiene líneas corruptas.");
             }
+
+            $todasLasFilas[] = array_combine($columnas, $fila);
+            
         }
 
         return  $todasLasFilas;
@@ -187,7 +201,6 @@ class CsvService {
     */
     public function filtrarDatos(array $datosCsv,Request $request) : array
     {
-       
         $textoBuscar = $request->get('inputBuscar');
         $columnaFiltro = $request->get('opcionesBuscar');
     
@@ -220,9 +233,16 @@ class CsvService {
         //Verificamos que simbolo se repite mas veces en el encabezado de la tabla para saber cual es el separador del archivo
         $objetoLectura = new SplFileObject($rutaAbsoluta);
         $encabezado = $objetoLectura->fgets();
+        if ($encabezado === false || trim($encabezado) === '') {
+            throw new \Exception("El archivo CSV está vacío o su primera línea es ilegible.");
+        }
 
         $comas = substr_count($encabezado, ',');
         $puntoComas = substr_count($encabezado, ';');
+        if ($comas === 0 && $puntoComas === 0) {
+            throw new \Exception("No se ha podido detectar un separador válido.");
+        }
+
         $separador=($puntoComas > $comas) ? ';' : ',';
         return $separador;
     }

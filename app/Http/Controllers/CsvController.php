@@ -9,6 +9,10 @@ use Illuminate\Support\Facades\Storage;
 use App\Services\CsvService;
 use SplFileObject;
 use Illuminate\Http\File;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\View\View;
+use App\Http\Requests\BuscarCsvRequest;
+use Throwable;
 
 /**
 * Controlador encargado de gestionar el flujo completo de los archivos CSV.
@@ -34,24 +38,28 @@ class CsvController extends Controller{
     */
     public function leerCsv(CsvRequest $request) : RedirectResponse
     {
-   
-        $archivo= $request->file('anadirArchivo'); //Accedemos al archivo 
-        $archivoAlmacenado =  $this->csvService->preprocesarCsv($archivo);
+        try {
+            $archivo= $request->file('anadirArchivo'); //Accedemos al archivo 
+            $archivoAlmacenado =  $this->csvService->preprocesarCsv($archivo);
 
-        return redirect()->route('mostrar.csv',
-        [
-            'archivo' => $archivoAlmacenado,
-        ]);
+            return redirect()->route('mostrar.csv',
+            [
+                'archivo' => $archivoAlmacenado,
+            ]);
+            
+         } catch (Throwable $e) {
+            return redirect()->route('index')->withErrors($e->getMessage());
+        }
     }
 
     /**
     * Coordina la comprobacion, lectura, filtrado y paginacion de un archivo CSV para su visualizacion.
     *
-    * @param  \Illuminate\Http\Request  $request Contiene los parametros de busqueda y numero de filas por página.
+    * @param  \Illuminate\Http\BuscarCsvRequest  $request Contiene los parametros de busqueda y numero de filas por pagina.
     * @param  string  $archivo Ruta relativa del archivo guardado en el almacenamiento local.
     * @return \Illuminate\Http\RedirectResponse|\Illuminate\View\View Vista con los datos procesados o redireccion por error.
     */
-    public function mostrarCsv(Request $request, string $archivo) : RedirectResponse|View
+    public function mostrarCsv(BuscarCsvRequest $request, string $archivo) : RedirectResponse|View
     {
 
         if (!Storage::exists($archivo)) { //Si el archivo no existe devuelve error al usuario en el inicio
@@ -60,18 +68,21 @@ class CsvController extends Controller{
 
         $nombreArchivo= $this->csvService->obtenerNombreArchivo($archivo);
 
-        $paginador = $this->csvService->procesarCsv($archivo, $request);
-        if ($paginador->isEmpty() && !request('inputBuscar')) {
-            return redirect()->route('index')->withErrors('El archivo está vacío o es inválido.');
-        }
+        try {
+            $paginador = $this->csvService->procesarCsv($archivo, $request);
+            if ($paginador->isEmpty() && !request('inputBuscar')) {
+                return redirect()->route('index')->withErrors('El archivo está vacío o es inválido.');
+            }
+            $paginador->withQueryString();
 
-        return view('visualizacionCsv', [//Enviamos la informacion a la vista donde se muestra
-            'datos'          => $paginador,
-            'archivo'        => $archivo,
-            'nombreArchivo'  => $nombreArchivo,
-            'totalFilas'     => $paginador->total(),
-            'filasPorPagina' => $paginador->perPage(),
-        ]);
+            return view('visualizacionCsv', [//Enviamos la informacion a la vista donde se muestra
+                'datos'          => $paginador,
+                'archivo'        => $archivo,
+                'nombreArchivo'  => $nombreArchivo,
+            ]);
+        } catch (Throwable $e) {
+            return redirect()->route('index')->withErrors($e->getMessage());
+        }
     }
 
     /**
