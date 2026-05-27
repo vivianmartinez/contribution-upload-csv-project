@@ -8,8 +8,8 @@ use App\Http\Controllers\CsvController;
  * el flujo de control de los archivos CSV (subida, renderizado y borrado).
  */
 
-//Ruta raiz: Carga la pantalla de bienvenida 
-Route::get('/', function () {return view('index');})->name('index');
+//Ruta GET: Carga la pantalla de bienvenida 
+Route::get('/inicio', [CsvController::class, 'index'])->name('index');
 
 //Ruta POST: Recibe el archivo en bruto desde el formulario y delega su almacenamiento al controlador
 Route::post('/archivo', [CsvController::class, 'leerCsv'])->name('leer.csv'); 
