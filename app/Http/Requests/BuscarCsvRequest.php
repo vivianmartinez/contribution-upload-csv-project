@@ -23,10 +23,10 @@ class BuscarCsvRequest extends FormRequest
     */
     public function rules(): array
     {
-        if ($this->query->has('botonBuscar')) {
+        if ($this->has('botonBuscar')) {
             return [
-                'inputBuscar'    => 'required',
-                'opcionesBuscar' => 'required'
+                'inputBuscar'    => 'required|string',
+                'opcionesBuscar' => 'required|string'
             ];
         }
         return [];
@@ -41,7 +41,9 @@ class BuscarCsvRequest extends FormRequest
     {
         return [
             'inputBuscar.required'    => 'Debes escribir un término para buscar.',
-            'opcionesBuscar.required' => 'Selecciona un campo para realizar la búsqueda.'
+            'inputBuscar.string'      => 'El término de búsqueda no es válido.',
+            'opcionesBuscar.required' => 'Selecciona un campo para realizar la búsqueda.',
+            'opcionesBuscar.string'   => 'El campo seleccionado no es válido.'
         ];
     }
 }

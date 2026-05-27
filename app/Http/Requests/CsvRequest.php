@@ -31,7 +31,7 @@ class CsvRequest extends FormRequest
     public function rules(): array
     {
         return [
-           'anadirArchivo' => 'required|file|mimes:csv,txt'
+           'anadirArchivo' => 'required|file|mimes:csv,txt|extensions:csv,txt'
         ];
     }
 
@@ -45,7 +45,8 @@ class CsvRequest extends FormRequest
         return [
             'anadirArchivo.required' => 'Debes subir un archivo.',
             'anadirArchivo.file' => 'Debes subir un archivo válido.',
-            'anadirArchivo.mimes' => 'El archivo debe ser tipo csv o txt.'
+            'anadirArchivo.mimes' => 'El archivo debe ser tipo csv o txt.',
+            'anadirArchivo.extensions' => 'El archivo debe tener obligatoriamente la extensión .csv o .txt.'
         ];
     }
 }
