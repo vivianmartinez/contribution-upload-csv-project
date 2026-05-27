@@ -46,29 +46,31 @@ body {
 }
 
 
-.boton_buscar {
+.boton_subir {
   display: none;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   background: none;
-  border: 2px solid rgb(180, 180, 180);  
+  border: none;          
+  padding: 0;           
+  cursor: pointer;      
+  font-family: inherit;
 }
 
-.boton_buscar svg {
-  width: 24px;
-  height: 24px;
-  fill: rgb(0, 0, 0);
+.boton_subir svg {
+  width: 40px;
+  height: 40px;
   display: block;
   margin: 0 auto;
-}
-
-.boton_subir svg{
-fill: #1f8ba0;
+  fill: #1f8ba0;
 }
 
 .error{
   color: red;
   font-weight: bold;
+  display: block;     
+  margin-top: 15px;    
+  text-align: center; 
 }
 

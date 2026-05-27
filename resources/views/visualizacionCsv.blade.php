@@ -2,6 +2,11 @@
 
 @section('title',  $nombreArchivo)
 
+@push('styles')
+    <!--  CSS  -->
+    <link rel="stylesheet" href="{{ asset('css/pag_visualizacion_csv.css') }}">
+@endpush
+
 @section('content')
 <!--BOTON VOLVER AL INICIO -->
     <a href="{{ route('eliminar.csv', ['archivo' => $archivo]) }}" class="botonVolver">
@@ -43,12 +48,11 @@
                    
                 <button type="submit" name="botonBuscar">Buscar</button>
                 
-                {{-- 💡 CORREGIDO: Cambiada la clase 'refrescar' por 'btn-refrescar' para vincularse a tu CSS --}}
                 <a href="{{ route('mostrar.csv', ['archivo' => $archivo]) }}" class="btn-refrescar">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M3 21v-5h5"></path></svg>
                 </a>
 
-                 <div class="contenedorErrores">
+                <div class="contenedorErrores">
                     @error('inputBuscar')
                         <span class="errorBuscadorTexto">{{ $message }}</span>
                     @enderror
@@ -99,3 +103,7 @@
         </div>
     </div>
 @endsection
+@push('scripts')
+    <!-- JS -->
+    <script src="{{ asset('js/selector_vista.js') }}"></script>
+@endpush
