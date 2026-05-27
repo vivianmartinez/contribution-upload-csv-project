@@ -5,8 +5,10 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\UploadedFile; 
 use SplFileObject;
 use Illuminate\Http\Request;
-use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Str; 
+use Illuminate\Pagination\LengthAwarePaginator; 
+use RuntimeException;
+use InvalidArgumentException;
+use LengthException;
 
 
 
@@ -24,15 +26,14 @@ class CsvService {
     * Preprocesa un archivo CSV subido: gestiona su lectura, detecta el separador y
     * delega la normalizacion para guardarlo finalmente en el almacenamiento.
     *
-    * @param  \Illuminate\Http\UploadedFile  $archivo Archivo subido desde el formulario.
+    * @param  UploadedFile  $archivo Archivo subido desde el formulario.
     * @return string Ruta relativa donde se ha guardado el nuevo archivo tratado.
     */
     public function preProcesarCsv(UploadedFile $archivo) : string
     {
-
         $archivoInput =  $archivo->getRealPath(); //Seleccionamos la ruta real del archivo
         if (!$archivoInput) {
-            throw new \Exception("No se ha podido acceder a la ruta temporal del archivo.");
+            throw new InvalidArgumentException("Error: No se pudo acceder a la ruta temporal del archivo.");
         }
 
         $separador = $this->detectarSeparador($archivoInput); //Detectamos el separador del archivo 
@@ -44,25 +45,34 @@ class CsvService {
 
         $stream = $this->normalizarCsv($objetoLectura);
 
-        $archivoAlmacenado = 'csv/' . uniqid() . '_' . $archivo->getClientOriginalName();
-        Storage::writeStream($archivoAlmacenado, $stream);
+        $archivoPreprocesado = 'csv/' . uniqid() . '_' . $archivo->getClientOriginalName();
+        
+        $guardado = Storage::writeStream($archivoPreprocesado, $stream);
+        if (!$guardado){
+            fclose($stream);
+            $objetoLectura = null; 
+             throw new RuntimeException("Error: No se pudo guardar el archivo preprocesado.");
+        }
         
         fclose($stream);
         $objetoLectura = null; 
 
-        return $archivoAlmacenado; 
+        return $archivoPreprocesado; 
     }
 
     /**
     * Recorre el lector de CSV para generar un flujo de datos con la cabecera 
     * normalizada y las celdas aseguradas en codificacion UTF-8.
     *
-    * @param  \SplFileObject  $objetoLectura Puntero de lectura del archivo CSV original.
+    * @param  SplFileObject  $objetoLectura Puntero de lectura del archivo CSV original.
     * @return resource Puntero del stream temporal con los datos procesados.
     */
     public function normalizarCsv(SplFileObject $objetoLectura) : mixed
     {
         $stream = fopen('php://temp', 'r+');
+        if ($stream === false) {
+            throw new RuntimeException('Error: No se pudo asignar memoria para la lectura del archivo en la normalización.');
+        }
 
         foreach ($objetoLectura as $indice => $fila) {
        
@@ -88,14 +98,18 @@ class CsvService {
     * Procesa un archivo CSV ya preprocesado transformandolo en un array asociativo paginado.
     *
     * @param  string  $archivoPreprocesado Ruta relativa del archivo guardado en el servidor.
-    * @param  \Illuminate\Http\Request  $request Objeto de la petición HTTP con los filtros de busqueda.
-    * @return \Illuminate\Pagination\LengthAwarePaginator Instancia de paginacion con los registros correspondientes.
+    * @param  Request  $request Objeto de la petición HTTP con los filtros de busqueda.
+    * @return LengthAwarePaginator Instancia de paginacion con los registros correspondientes.
     */
     public function procesarCsv(string $archivoPreprocesado,Request $request) : LengthAwarePaginator
     {
+        if (!Storage::exists($archivoPreprocesado)) {
+            throw new RuntimeException("Error: El archivo solicitado no existe o ha expirado.");
+        }
+
         $datosCsv = $this->convertirCsvEnArray($archivoPreprocesado);
         if (empty($datosCsv)) {
-            throw new \Exception("El archivo CSV no contiene registros de datos para mostrar.");
+            throw new LengthException("Error: El archivo CSV no contiene registros de datos para mostrar.");
         }
 
         $paginador = $this->paginarCsv($datosCsv, $request);
@@ -108,12 +122,11 @@ class CsvService {
     * Filtra una matriz de datos y construye el objeto de paginacion nativo de Laravel.
     *
     * @param  array  $datosCsv Matriz de datos asociativos del archivo CSV.
-    * @param  \Illuminate\Http\Request  $request Peticion con el numero de filas e indice de pagina.
-    * @return \Illuminate\Pagination\LengthAwarePaginator Paginador configurado con las URLs de navegacion.
+    * @param  Request  $request Peticion con el numero de filas e indice de pagina.
+    * @return LengthAwarePaginator Paginador configurado con las URLs de navegacion.
     */
     public function paginarCsv(array $datosCsv,Request $request): LengthAwarePaginator
     {
-
         $cabecera = !empty($datosCsv) ? array_keys(current($datosCsv)) : [];
         $datosFiltrados = $this->filtrarDatos($datosCsv, $request);
 
@@ -147,16 +160,21 @@ class CsvService {
      */
     public function convertirCsvEnArray(string $archivoPreprocesado) : array
     {
-
         //Recibimos la ruta del archivo y creamos el objeto de lectura para poder recorrer la informacion
         $archivoRuta = Storage::path($archivoPreprocesado);
-        $objetoLectura = new \SplFileObject($archivoRuta);
+        $objetoLectura = new SplFileObject($archivoRuta);
         $objetoLectura->setFlags(SplFileObject::READ_CSV | SplFileObject::SKIP_EMPTY | SplFileObject::DROP_NEW_LINE);
         $objetoLectura->setCsvControl(';'); 
 
         $columnas = $objetoLectura->fgetcsv();//lee la primera fila del archivo para obtener la cabecera
         if (!$columnas || empty(array_filter($columnas))) {
-            throw new \Exception("El archivo CSV no contiene una estructura de cabeceras válida."); 
+            $objetoLectura = null;
+            throw new InvalidArgumentException("Error: El archivo CSV no contiene una estructura de cabeceras válida."); 
+        }
+
+        if (count($columnas) !== count(array_unique($columnas))) {
+            $objetoLectura = null; 
+            throw new InvalidArgumentException("Error : El archivo CSV contiene nombres de columnas duplicados en la cabecera.");
         }
 
         $todasLasFilas = [];
@@ -168,13 +186,13 @@ class CsvService {
                 continue;
             }   
             if (count($fila) !== count($columnas)) {
-                throw new \Exception("El archivo contiene líneas corruptas.");
+                throw new LengthException("Error: El archivo contiene líneas corruptas.");
             }
 
             $todasLasFilas[] = array_combine($columnas, $fila);
             
         }
-
+        $objetoLectura = null; 
         return  $todasLasFilas;
     }
 
@@ -196,7 +214,7 @@ class CsvService {
     * Filtra el array de filas basandose en un termino de busqueda y una columna seleccionada.
     *
     * @param  array  $datosCsv Matriz asociativa con las filas del documento.
-    * @param  \Illuminate\Http\Request  $request Peticion con el campo a buscar y la columna filtro.
+    * @param  Request  $request Peticion con el campo a buscar y la columna filtro.
     * @return array Matriz filtrada unicamente con los registros coincidentes.
     */
     public function filtrarDatos(array $datosCsv,Request $request) : array
@@ -205,16 +223,17 @@ class CsvService {
         $columnaFiltro = $request->get('opcionesBuscar');
     
         if (empty($textoBuscar)){
-                return $datosCsv;
-            }  
+            return $datosCsv;
+        }  
 
+        $columnas = array_keys(current($datosCsv) ?: []);
+        if (!in_array($columnaFiltro, $columnas)) {
+            return []; 
+        }
+        
         $buscar = $this->quitarAcentos(mb_strtolower($textoBuscar, 'UTF-8'));
 
-        $datosFiltrados = array_filter($datosCsv, function ($fila) use ($columnaFiltro, $buscar) {
-            if (!isset($fila[$columnaFiltro])) {
-                return false;
-            }
-            
+        $datosFiltrados = array_filter($datosCsv, function ($fila) use ($columnaFiltro, $buscar) {  
             $valor = $this->quitarAcentos(mb_strtolower($fila[$columnaFiltro], 'UTF-8'));
             return str_contains($valor, $buscar);
         });
@@ -234,13 +253,14 @@ class CsvService {
         $objetoLectura = new SplFileObject($rutaAbsoluta);
         $encabezado = $objetoLectura->fgets();
         if ($encabezado === false || trim($encabezado) === '') {
-            throw new \Exception("El archivo CSV está vacío o su primera línea es ilegible.");
+            $objetoLectura = null;
+            throw new InvalidArgumentException("Error: El archivo CSV está vacío o su primera línea es ilegible.");
         }
 
         $comas = substr_count($encabezado, ',');
         $puntoComas = substr_count($encabezado, ';');
         if ($comas === 0 && $puntoComas === 0) {
-            throw new \Exception("No se ha podido detectar un separador válido.");
+            throw new InvalidArgumentException("Error: No se ha podido detectar un separador válido.");
         }
 
         $separador=($puntoComas > $comas) ? ';' : ',';
@@ -270,7 +290,6 @@ class CsvService {
     */
     public function quitarAcentos(string $texto) : string
     {
-        
         $buscar  = ['á', 'é', 'í', 'ó', 'ú', 'ü', 'Á', 'É', 'Í', 'Ó', 'Ú', 'Ü'];
         $reemplazar = ['a', 'e', 'i', 'o', 'u', 'u', 'A', 'E', 'I', 'O', 'U', 'U'];
         return str_replace($buscar, $reemplazar, $texto);

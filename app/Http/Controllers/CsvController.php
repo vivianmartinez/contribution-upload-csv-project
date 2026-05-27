@@ -3,16 +3,18 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\CsvRequest; //Gestionamos la validacion aqui
+use App\Http\Requests\BuscarCsvRequest; //Gestionamos la validacion aqui
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 use App\Services\CsvService;
-use SplFileObject;
-use Illuminate\Http\File;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
-use App\Http\Requests\BuscarCsvRequest;
-use Throwable;
+use Illuminate\Contracts\Filesystem\FileNotFoundException;
+use InvalidArgumentException;
+use LengthException;
+use RuntimeException;
+
 
 /**
 * Controlador encargado de gestionar el flujo completo de los archivos CSV.
@@ -31,6 +33,15 @@ class CsvController extends Controller{
     }
 
     /**
+    * Muestra la pantalla inicial de la aplicacion (Subir CSV).
+    * @return \Illuminate\View\View
+    */
+    public function index() : View
+    {
+        return view('index');
+    }
+
+    /**
     * Recoge el archivo CSV y lo almacena en el servidor.
     *
     * @param  \App\Http\Requests\CsvRequest  $request Peticion con las reglas de validacion del archivo.
@@ -40,15 +51,19 @@ class CsvController extends Controller{
     {
         try {
             $archivo= $request->file('anadirArchivo'); //Accedemos al archivo 
-            $archivoAlmacenado =  $this->csvService->preprocesarCsv($archivo);
+            $archivoAlmacenado =  $this->csvService->preProcesarCsv($archivo);
 
             return redirect()->route('mostrar.csv',
             [
                 'archivo' => $archivoAlmacenado,
             ]);
             
-         } catch (Throwable $e) {
-            return redirect()->route('index')->withErrors($e->getMessage());
+        } catch (InvalidArgumentException $e) { //Error en los datos del archivo subido 
+            return redirect()->route('index')->withErrors(['anadirArchivo' => $e->getMessage()]);
+
+        } catch (RuntimeException $e) {// Captura fallos del servidor y escribe en logs, envia mensaje al usuario
+            Log::error('Fallo de almacenamiento al subir CSV: ' . $e->getMessage());
+            return redirect()->route('index')->withErrors(['anadirArchivo' => 'Error: Hubo un problema interno en el servidor al guardar el archivo.']);
         }
     }
 
@@ -61,17 +76,12 @@ class CsvController extends Controller{
     */
     public function mostrarCsv(BuscarCsvRequest $request, string $archivo) : RedirectResponse|View
     {
-
-        if (!Storage::exists($archivo)) { //Si el archivo no existe devuelve error al usuario en el inicio
-            return redirect()->route('index')->withErrors('Archivo no encontrado');
-        }
-
         $nombreArchivo= $this->csvService->obtenerNombreArchivo($archivo);
 
         try {
             $paginador = $this->csvService->procesarCsv($archivo, $request);
-            if ($paginador->isEmpty() && !request('inputBuscar')) {
-                return redirect()->route('index')->withErrors('El archivo está vacío o es inválido.');
+            if ($paginador->isEmpty() && !$request->get('inputBuscar')) {
+                return redirect()->route('index')->withErrors(['anadirArchivo' => 'Error: El archivo está vacío o es inválido.']);
             }
             $paginador->withQueryString();
 
@@ -80,8 +90,13 @@ class CsvController extends Controller{
                 'archivo'        => $archivo,
                 'nombreArchivo'  => $nombreArchivo,
             ]);
-        } catch (Throwable $e) {
-            return redirect()->route('index')->withErrors($e->getMessage());
+
+        } catch (FileNotFoundException | InvalidArgumentException | LengthException $e) {  // El archivo no existe o ha expirado, o errores internos del CSV (columnas duplicadas, sin filas, separador inválido)
+            return redirect()->route('index')->withErrors(['anadirArchivo' => $e->getMessage()]);
+
+        } catch (RuntimeException $e) {   // Captura fallos del servidor y escribe en logs, envia mensaje al usuario
+            Log::error('Fallo crítico al leer CSV: ' . $e->getMessage());
+            return redirect()->route('index')->withErrors(['anadirArchivo' => 'Error: No se pudo procesar el archivo debido a un error interno.']);
         }
     }
 
@@ -94,11 +109,9 @@ class CsvController extends Controller{
     */
     public function eliminarCsv(Request $request, string $archivo) : RedirectResponse
     {
-
-        if (Storage::exists($archivo)) {
+        if (Storage::disk('local')->exists($archivo)) {
             Storage::disk('local')->delete($archivo);
         }
-       
         return redirect()->route('index');
     }
 
