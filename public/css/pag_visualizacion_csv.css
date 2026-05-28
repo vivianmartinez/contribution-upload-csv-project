@@ -71,29 +71,12 @@ h4 {
 /*--ERRORES--*/
 .error {
   color: red;
+  font-style: italic;
   font-weight: bold;
+  font-size: 15px;
+  text-align: center; 
 }
 
-.contenedorErrores {
-  position: absolute;
-  bottom: 100%;             
-  right: 0;             
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  margin-bottom: 6px;      
-  z-index: 10;
-  width: max-content;    
-}
-.errorBuscadorTexto {
-  color: red;
-  font-size: 12px;
-  font-weight: 500;
-  white-space: nowrap;    
-  text-align: right;    
-  display: block;
-  width: 100%;
-}
 
 
 /*--PAGINACION--*/

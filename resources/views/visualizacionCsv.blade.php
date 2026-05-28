@@ -17,7 +17,17 @@
         <h4>Datos del Archivo:</h4>
         <h2>{{ $nombreArchivo  }}</h2>
 
+<!--ERRORES GLOBALES -->      
+    @if ($errors->any())
+        <div class="error">
+            @foreach ($errors->all() as $error)
+                <p>{{ $error }}</p>
+            @endforeach
+        </div>
+    @endif
+
 <!--BARRA SUPERIOR: TIPO DE VISTA Y BUSQUEDA -->
+
     <div class="barraSuperior">
         <form method="GET" action="{{ route('mostrar.csv', ['archivo' => $archivo]) }}" class="buscador">
             <div class="controlVista">
@@ -51,16 +61,6 @@
                 <a href="{{ route('mostrar.csv', ['archivo' => $archivo]) }}" class="btn-refrescar">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M3 21v-5h5"></path></svg>
                 </a>
-
-                <div class="contenedorErrores">
-                    @error('inputBuscar')
-                        <span class="errorBuscadorTexto">{{ $message }}</span>
-                    @enderror
-
-                    @error('opcionesBuscar')
-                        <span class="errorBuscadorTexto">{{ $message }}</span>
-                    @enderror
-                </div>
             </div>
         </form>
     </div>
@@ -69,39 +69,52 @@
     <table class="tabla">
         <thead>
             <tr>
-                @foreach ($datos->cabecera as $col)
-                    <th>{{ $col }}</th>
-                @endforeach
+                @if($errors->has('error_general'))
+                    <th></th>
+                @else
+                    @foreach ($datos->cabecera as $col)
+                        <th>{{ $col }}</th>
+                    @endforeach
+                @endif
             </tr>
         </thead>
 
         <tbody>
-            @forelse ($datos as $row)
+            @if($errors->has('error_general'))
                 <tr>
-                    @foreach ($row as $valor)
-                        <td>{{ $valor }}</td>
-                    @endforeach
+                    <td>No es posible mostrar la información debido a un error.</td>
                 </tr>
-            @empty
-                <tr>
-                   <td colspan="{{ count($datos->cabecera) }}" style="text-align: center; padding: 20px;">
-                    No se encontraron registros.
-                   </td>
-                </tr>
-            @endforelse
+            @else
+                @forelse ($datos as $row)
+                    <tr>
+                        @foreach ($row as $valor)
+                            <td>{{ $valor }}</td>
+                        @endforeach
+                    </tr>
+                @empty
+                    <tr>
+                    <td colspan="{{ count($datos->cabecera) }}" style="text-align: center; padding: 20px;">
+                        No se encontraron registros.
+                    </td>
+                    </tr>
+                @endforelse
+            @endif
         </tbody>
     </table>
 
 <!--BARRA INFERIOR:CONTADOR Y PAGINACION -->
     <div class="barraInferior"> 
         <p class="contadorFilas">
-            {{ $datos->total() }} registros
+            {{ $errors->has('error_general') ? 0 : $datos->total() }} registros
         </p>
 
         <div class="paginacion">
-          {{ $datos->links('partials.paginacion') }}
+            @if(!$errors->has('error_general'))
+                {{ $datos->links('partials.paginacion') }}
+            @endif
         </div>
     </div>
+
 @endsection
 @push('scripts')
     <!-- JS -->

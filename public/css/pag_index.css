@@ -66,9 +66,10 @@ body {
   fill: #1f8ba0;
 }
 
-.error{
+.alerta-error{
   color: red;
   font-weight: bold;
+  font-style: italic;
   display: block;     
   margin-top: 15px;    
   text-align: center; 

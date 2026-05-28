@@ -9,6 +9,8 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use RuntimeException;
 use InvalidArgumentException;
 use LengthException;
+use Illuminate\Contracts\Filesystem\FileNotFoundException;
+use OutOfBoundsException;
 
 
 
@@ -33,13 +35,12 @@ class CsvService {
     {
         $archivoInput =  $archivo->getRealPath(); //Seleccionamos la ruta real del archivo
         if (!$archivoInput) {
-            throw new InvalidArgumentException("Error: No se pudo acceder a la ruta temporal del archivo.");
+            throw new InvalidArgumentException( "No se pudo acceder a la ruta temporal del archivo.");
         }
 
         $separador = $this->detectarSeparador($archivoInput); //Detectamos el separador del archivo 
-
         //Creamos el objeto de lectura
-        $objetoLectura = new \SplFileObject($archivoInput); 
+        $objetoLectura = new SplFileObject($archivoInput); 
         $objetoLectura->setFlags(SplFileObject::READ_CSV | \SplFileObject::SKIP_EMPTY | \SplFileObject::DROP_NEW_LINE); 
         $objetoLectura->setCsvControl($separador); //explicamos que separador usa el archivo
 
@@ -50,12 +51,10 @@ class CsvService {
         $guardado = Storage::writeStream($archivoPreprocesado, $stream);
         if (!$guardado){
             fclose($stream);
-            $objetoLectura = null; 
-             throw new RuntimeException("Error: No se pudo guardar el archivo preprocesado.");
+             throw new RuntimeException("No se pudo guardar el archivo preprocesado.");
         }
         
         fclose($stream);
-        $objetoLectura = null; 
 
         return $archivoPreprocesado; 
     }
@@ -71,7 +70,7 @@ class CsvService {
     {
         $stream = fopen('php://temp', 'r+');
         if ($stream === false) {
-            throw new RuntimeException('Error: No se pudo asignar memoria para la lectura del archivo en la normalización.');
+            throw new RuntimeException("No se pudo asignar memoria para la lectura del archivo en la normalización.");
         }
 
         foreach ($objetoLectura as $indice => $fila) {
@@ -104,12 +103,12 @@ class CsvService {
     public function procesarCsv(string $archivoPreprocesado,Request $request) : LengthAwarePaginator
     {
         if (!Storage::exists($archivoPreprocesado)) {
-            throw new RuntimeException("Error: El archivo solicitado no existe o ha expirado.");
+            throw new FileNotFoundException("El archivo solicitado no existe o ha expirado.");
         }
 
         $datosCsv = $this->convertirCsvEnArray($archivoPreprocesado);
         if (empty($datosCsv)) {
-            throw new LengthException("Error: El archivo CSV no contiene registros de datos para mostrar.");
+            throw new LengthException("El archivo CSV no contiene registros de datos para mostrar.");
         }
 
         $paginador = $this->paginarCsv($datosCsv, $request);
@@ -168,13 +167,11 @@ class CsvService {
 
         $columnas = $objetoLectura->fgetcsv();//lee la primera fila del archivo para obtener la cabecera
         if (!$columnas || empty(array_filter($columnas))) {
-            $objetoLectura = null;
-            throw new InvalidArgumentException("Error: El archivo CSV no contiene una estructura de cabeceras válida."); 
+            throw new InvalidArgumentException("El archivo CSV no contiene una estructura de cabeceras válida."); 
         }
 
         if (count($columnas) !== count(array_unique($columnas))) {
-            $objetoLectura = null; 
-            throw new InvalidArgumentException("Error : El archivo CSV contiene nombres de columnas duplicados en la cabecera.");
+            throw new OutOfBoundsException("El archivo CSV contiene nombres de columnas duplicados en la cabecera.");
         }
 
         $todasLasFilas = [];
@@ -186,13 +183,12 @@ class CsvService {
                 continue;
             }   
             if (count($fila) !== count($columnas)) {
-                throw new LengthException("Error: El archivo contiene líneas corruptas.");
+                throw new LengthException("El archivo contiene líneas corruptas.");
             }
 
             $todasLasFilas[] = array_combine($columnas, $fila);
             
         }
-        $objetoLectura = null; 
         return  $todasLasFilas;
     }
 
@@ -228,7 +224,7 @@ class CsvService {
 
         $columnas = array_keys(current($datosCsv) ?: []);
         if (!in_array($columnaFiltro, $columnas)) {
-            return []; 
+            throw new OutOfBoundsException("La columna seleccionada para filtrar no existe en el archivo."); 
         }
         
         $buscar = $this->quitarAcentos(mb_strtolower($textoBuscar, 'UTF-8'));
@@ -238,7 +234,7 @@ class CsvService {
             return str_contains($valor, $buscar);
         });
 
-        return $datosFiltrados;
+        return array_values($datosFiltrados);
     }
 
     /**
@@ -253,14 +249,13 @@ class CsvService {
         $objetoLectura = new SplFileObject($rutaAbsoluta);
         $encabezado = $objetoLectura->fgets();
         if ($encabezado === false || trim($encabezado) === '') {
-            $objetoLectura = null;
-            throw new InvalidArgumentException("Error: El archivo CSV está vacío o su primera línea es ilegible.");
+            throw new InvalidArgumentException("El archivo CSV está vacío o su primera línea es ilegible.");
         }
 
         $comas = substr_count($encabezado, ',');
         $puntoComas = substr_count($encabezado, ';');
         if ($comas === 0 && $puntoComas === 0) {
-            throw new InvalidArgumentException("Error: No se ha podido detectar un separador válido.");
+            throw new InvalidArgumentException("No se ha podido detectar un separador válido.");
         }
 
         $separador=($puntoComas > $comas) ? ';' : ',';

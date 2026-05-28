@@ -14,6 +14,8 @@ use Illuminate\Contracts\Filesystem\FileNotFoundException;
 use InvalidArgumentException;
 use LengthException;
 use RuntimeException;
+use Throwable;
+use OutOfBoundsException;
 
 
 /**
@@ -59,11 +61,15 @@ class CsvController extends Controller{
             ]);
             
         } catch (InvalidArgumentException $e) { //Error en los datos del archivo subido 
-            return redirect()->route('index')->withErrors(['anadirArchivo' => $e->getMessage()]);
+            return redirect()->route('index')->withErrors(['error_general' => $e->getMessage()]);
 
         } catch (RuntimeException $e) {// Captura fallos del servidor y escribe en logs, envia mensaje al usuario
             Log::error('Fallo de almacenamiento al subir CSV: ' . $e->getMessage());
-            return redirect()->route('index')->withErrors(['anadirArchivo' => 'Error: Hubo un problema interno en el servidor al guardar el archivo.']);
+            return redirect()->route('index')->withErrors(['error_general' => 'Hubo un problema interno en el servidor al guardar el archivo.']);
+
+        }catch (Throwable $e) { // Capturar otra excepcion no controlada 
+            Log::critical('Fallo imprevisto y crítico al subir el CSV: ' . $e->getMessage());
+            return redirect()->route('index')->withErrors(['error_general' => 'Ocurrió un error inesperado en el sistema. Por favor, inténtelo de nuevo más tarde.']);
         }
     }
 
@@ -76,12 +82,12 @@ class CsvController extends Controller{
     */
     public function mostrarCsv(BuscarCsvRequest $request, string $archivo) : RedirectResponse|View
     {
-        $nombreArchivo= $this->csvService->obtenerNombreArchivo($archivo);
-
         try {
+            $nombreArchivo= $this->csvService->obtenerNombreArchivo($archivo);
+
             $paginador = $this->csvService->procesarCsv($archivo, $request);
             if ($paginador->isEmpty() && !$request->get('inputBuscar')) {
-                return redirect()->route('index')->withErrors(['anadirArchivo' => 'Error: El archivo está vacío o es inválido.']);
+                return redirect()->route('index')->withErrors(['error_general' => 'El archivo está vacío o es inválido.']);
             }
             $paginador->withQueryString();
 
@@ -91,12 +97,19 @@ class CsvController extends Controller{
                 'nombreArchivo'  => $nombreArchivo,
             ]);
 
-        } catch (FileNotFoundException | InvalidArgumentException | LengthException $e) {  // El archivo no existe o ha expirado, o errores internos del CSV (columnas duplicadas, sin filas, separador inválido)
-            return redirect()->route('index')->withErrors(['anadirArchivo' => $e->getMessage()]);
+        } catch (FileNotFoundException $e) {  // El archivo no existe o ha expirado
+            return redirect()->route('index')->withErrors(['error_general' => $e->getMessage()]);
+
+        } catch ( InvalidArgumentException | LengthException | OutOfBoundsException $e) {  // Los errores internos del CSV (columnas duplicadas, sin filas, separador inválido)
+            return back()->withInput()->withErrors(['error_general' => $e->getMessage()]);
 
         } catch (RuntimeException $e) {   // Captura fallos del servidor y escribe en logs, envia mensaje al usuario
             Log::error('Fallo crítico al leer CSV: ' . $e->getMessage());
-            return redirect()->route('index')->withErrors(['anadirArchivo' => 'Error: No se pudo procesar el archivo debido a un error interno.']);
+            return back()->withInput()->withErrors(['error_general' => 'No se pudo procesar el archivo debido a un error interno.']);
+
+        }catch (Throwable $e) {    // Capturar otra excepcion no controlada 
+            Log::critical('Error imprevisto e imprevisto al mostrar el CSV: ' . $e->getMessage());
+            return back()->withInput()->withErrors(['error_general' => 'Ocurrió un error inesperado al procesar los datos.']);
         }
     }
 
