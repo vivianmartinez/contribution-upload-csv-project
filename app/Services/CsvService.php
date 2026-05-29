@@ -35,12 +35,16 @@ class CsvService {
     {
         $archivoInput =  $archivo->getRealPath(); //Seleccionamos la ruta real del archivo
         if (!$archivoInput) {
-            throw new InvalidArgumentException( "No se pudo acceder a la ruta temporal del archivo.");
+            throw new RuntimeException( "No se pudo acceder a la ruta temporal del archivo.");
         }
 
         $separador = $this->detectarSeparador($archivoInput); //Detectamos el separador del archivo 
-        //Creamos el objeto de lectura
-        $objetoLectura = new SplFileObject($archivoInput); 
+        
+        try {
+            $objetoLectura = new SplFileObject($archivoInput); //Creamos el objeto de lectura
+        } catch (Exception $e) {
+            throw new RuntimeException("No se pudo inicializar el lector para el preprocesamiento del archivo.");
+        }
         $objetoLectura->setFlags(SplFileObject::READ_CSV | \SplFileObject::SKIP_EMPTY | \SplFileObject::DROP_NEW_LINE); 
         $objetoLectura->setCsvControl($separador); //explicamos que separador usa el archivo
 
@@ -161,7 +165,11 @@ class CsvService {
     {
         //Recibimos la ruta del archivo y creamos el objeto de lectura para poder recorrer la informacion
         $archivoRuta = Storage::path($archivoPreprocesado);
-        $objetoLectura = new SplFileObject($archivoRuta);
+        try{
+            $objetoLectura = new SplFileObject($archivoRuta);
+        } catch (Exception $e) {
+            throw new RuntimeException("El archivo guardado no se puede abrir o se encuentra bloqueado por el sistema.");
+        }
         $objetoLectura->setFlags(SplFileObject::READ_CSV | SplFileObject::SKIP_EMPTY | SplFileObject::DROP_NEW_LINE);
         $objetoLectura->setCsvControl(';'); 
 
@@ -246,7 +254,12 @@ class CsvService {
     public function detectarSeparador(string $rutaAbsoluta) : string
     {  
         //Verificamos que simbolo se repite mas veces en el encabezado de la tabla para saber cual es el separador del archivo
-        $objetoLectura = new SplFileObject($rutaAbsoluta);
+        try {
+            $objetoLectura = new SplFileObject($rutaAbsoluta);
+        } catch (Exception $e) {
+            throw new RuntimeException("No se pudo abrir el archivo para analizar la estructura de su cabecera.");
+        }
+
         $encabezado = $objetoLectura->fgets();
         if ($encabezado === false || trim($encabezado) === '') {
             throw new InvalidArgumentException("El archivo CSV está vacío o su primera línea es ilegible.");

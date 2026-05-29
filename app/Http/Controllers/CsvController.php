@@ -59,12 +59,9 @@ class CsvController extends Controller{
             [
                 'archivo' => $archivoAlmacenado,
             ]);
-            
-        } catch (InvalidArgumentException $e) { //Error en los datos del archivo subido 
-            return redirect()->route('index')->withErrors(['error_general' => $e->getMessage()]);
 
         } catch (RuntimeException $e) {// Captura fallos del servidor y escribe en logs, envia mensaje al usuario
-            Log::error('Fallo de almacenamiento al subir CSV: ' . $e->getMessage());
+            Log::error('Fallo al subir CSV: ' . $e->getMessage());
             return redirect()->route('index')->withErrors(['error_general' => 'Hubo un problema interno en el servidor al guardar el archivo.']);
 
         }catch (Throwable $e) { // Capturar otra excepcion no controlada 
@@ -105,11 +102,11 @@ class CsvController extends Controller{
 
         } catch (RuntimeException $e) {   // Captura fallos del servidor y escribe en logs, envia mensaje al usuario
             Log::error('Fallo crítico al leer CSV: ' . $e->getMessage());
-            return back()->withInput()->withErrors(['error_general' => 'No se pudo procesar el archivo debido a un error interno.']);
+            return redirect()->route('index')->withErrors(['error_general' => 'No se pudo procesar el archivo debido a un error interno del servidor.']);
 
         }catch (Throwable $e) {    // Capturar otra excepcion no controlada 
             Log::critical('Error imprevisto e imprevisto al mostrar el CSV: ' . $e->getMessage());
-            return back()->withInput()->withErrors(['error_general' => 'Ocurrió un error inesperado al procesar los datos.']);
+            return redirect()->route('index')->withErrors(['error_general' => 'Ocurrió un error inesperado al procesar los datos.']);
         }
     }
 
