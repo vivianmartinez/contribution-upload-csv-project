@@ -42,7 +42,7 @@ class CsvService {
         
         try {
             $objetoLectura = new SplFileObject($archivoInput); //Creamos el objeto de lectura
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             throw new RuntimeException("No se pudo inicializar el lector para el preprocesamiento del archivo.");
         }
         $objetoLectura->setFlags(SplFileObject::READ_CSV | \SplFileObject::SKIP_EMPTY | \SplFileObject::DROP_NEW_LINE); 
@@ -167,7 +167,7 @@ class CsvService {
         $archivoRuta = Storage::path($archivoPreprocesado);
         try{
             $objetoLectura = new SplFileObject($archivoRuta);
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             throw new RuntimeException("El archivo guardado no se puede abrir o se encuentra bloqueado por el sistema.");
         }
         $objetoLectura->setFlags(SplFileObject::READ_CSV | SplFileObject::SKIP_EMPTY | SplFileObject::DROP_NEW_LINE);
@@ -256,7 +256,7 @@ class CsvService {
         //Verificamos que simbolo se repite mas veces en el encabezado de la tabla para saber cual es el separador del archivo
         try {
             $objetoLectura = new SplFileObject($rutaAbsoluta);
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             throw new RuntimeException("No se pudo abrir el archivo para analizar la estructura de su cabecera.");
         }
 
