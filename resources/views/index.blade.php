@@ -11,7 +11,7 @@
     <div class="contenedor_inicio">
         <form action="{{ route('leer.csv') }}" method="POST" enctype="multipart/form-data" >
         @csrf  <!--laravel bloquea la peticion si no verifica que el formulario es legitimo-->
-            <p> Bienvenido!</p>
+         
             <p> Selecciona un archivo CSV para poder verlo</p>
                 <input id="entrada_archivo" class="entrada_archivo" type="file" name="anadirArchivo" accept=".csv" required>
                         <label for="entrada_archivo" class="icono_subida" id="mi_label">

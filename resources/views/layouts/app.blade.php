@@ -6,8 +6,7 @@
         <title>@yield('title', config('app.name', 'SubirCsv'))</title>
 
         <!-- Fonts -->
-        <link rel="preconnect" href="https://bunny.net">
-        <link href="https://bunny.net/css?family=instrument-sans:400,500,600" rel="stylesheet" />
+        <link rel="stylesheet" href="https://bunny.net">
 
         <!--  Vite(CSS y JS) -->
         @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -17,7 +16,7 @@
     </head>
     <body class="bg-blue-50 min-h-screen flex flex-col m-0 p-0">
         <nav class="w-full bg-slate-50 border-b border-gray-200 py-3 px-6 flex justify-between items-center shadow-sm shrink-0 z-50">
-            <span class="text-gray-700 font-medium">
+            <span class="text-[#1F8BA0] font-medium">
                 Usuario:   <strong>{{ Auth::user()->name }}</strong>
             </span>
             
