@@ -20,21 +20,70 @@
 </head>
 
 <body class="bg-blue-50 min-h-screen flex flex-col m-0 p-0">
-    <nav class="w-full bg-slate-50 border-b border-gray-200 py-3 px-6 flex justify-between items-center shadow-sm shrink-0 z-50">
-        <span class="text-[#1F8BA0] font-medium">
-            Usuario: <strong>{{ Auth::user()->name }}</strong>
-        </span>
+    <nav class="w-full border-b border-gray-200 px-6 py-3 flex justify-between items-center shadow-sm"
+        style="background-color: #F9E79F;">
 
-        <form method="POST" action="{{ route('logout') }}">
-            @csrf
-            <button type="submit" class="inline-flex items-center gap-2 text-sm bg-blue-100 text-[#1F8BA0] hover:bg-blue-200 px-3 py-1.5 rounded font-semibold transition">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" class="w-4 h-4 fill-current">
-                    <path d="M569 337C578.4 327.6 578.4 312.4 569 303.1L425 159C418.1 152.1 407.8 150.1 398.8 153.8C389.8 157.5 384 166.3 384 176L384 256L272 256C245.5 256 224 277.5 224 304L224 336C224 362.5 245.5 384 272 384L384 384L384 464C384 473.7 389.8 482.5 398.8 486.2C407.8 489.9 418.1 487.9 425 481L569 337zM224 160C241.7 160 256 145.7 256 128C256 110.3 241.7 96 224 96L160 96C107 96 64 139 64 192L64 448C64 501 107 544 160 544L224 544C241.7 544 256 529.7 256 512C256 494.3 241.7 480 224 480L160 480C142.3 480 128 465.7 128 448L128 192C128 174.3 142.3 160 160 160L224 160z" />
+        {{-- LOGO - INICIO --}}
+        <a href="{{ route('index') }}" class="flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="white">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M7 3h6l5 5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
+                <text x="7" y="17" font-size="6" fill="white" font-weight="bold">CSV</text>
+            </svg>
+
+            <span class="text-secondary font-semibold text-lg">
+                Inicio
+            </span>
+        </a>
+
+
+        <div x-data="{ open: false }" class="relative">
+            <button
+                @click="open = !open"
+                class="flex items-center gap-3 focus:outline-none">
+                <div class="w-9 h-9 rounded-full bg-white shadow flex items-center justify-center text-gray-700 font-bold">
+                    {{ strtoupper(substr(Auth::user()->name, 0, 1)) }}
+                </div>
+
+                <span class="text-gray-800 font-medium">
+                    {{ Auth::user()->name }}
+                </span>
+
+                <svg class="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M19 9l-7 7-7-7" />
                 </svg>
-                <span>Cerrar Sesión</span>
             </button>
-        </form>
+
+            {{-- MENU DESPLEGABLE --}}
+            <div
+                x-show="open"
+                @click.away="open = false"
+                x-transition
+                class="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-2 z-50">
+                <a href="{{ route('profile.edit') }}"
+                    class="block px-4 py-2 text-gray-700 hover:bg-gray-100">
+                    Mi perfil
+                </a>
+
+
+                <a href="#"
+                    class="block px-4 py-2 text-gray-700 hover:bg-gray-100">
+                    Configuración
+                </a>
+
+                <form method="POST" action="{{ route('logout') }}">
+                    @csrf
+                    <button
+                        type="submit"
+                        class="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100">
+                        Cerrar sesión
+                    </button>
+                </form>
+            </div>
+        </div>
     </nav>
+
 
     <main class="contenido flex-grow">
         @yield('content')

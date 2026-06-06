@@ -15,7 +15,9 @@
 
             <div>
                 <!-- Tabs -->
-                <div x-data="{ tab: 'login' }" class="mt-6">
+                <!-- <div x-data="{ tab: 'login' }" class="mt-6"> -->
+                <div x-data="{ tab: '{{ old('tab', 'login') }}' }" class="mt-6">
+
 
                     <div class="flex justify-center mb-6">
                         <button
@@ -101,7 +103,6 @@
                                         </div>
                                         @endif
                                     </div>
-
                                 </div>
                             </template>
 
@@ -174,14 +175,16 @@
                                                 placeholder="Confirmar contraseña"
                                                 required
                                                 class="w-full pl-10 pr-3 py-2 rounded-lg border border-gray-300 focus:ring-yellow-300 focus:border-yellow-400" />
-                                            <div data-error>
-                                                <x-input-error :messages="$errors->get('password_confirmation')" class="text-red-500 text-xs mt-1" />
-                                            </div>
+                                        </div>
+                                        <div data-error>
+                                            <x-input-error :messages="$errors->get('password_confirmation')" class="text-red-500 text-xs mt-1" />
                                         </div>
                                     </div>
                                 </div>
                             </template>
                         </div>
+
+                        <input type="hidden" name="tab" :value="tab">
 
                         <!-- BOTÓN ÚNICO -->
                         <!-- <div x-data="{ loading: false }">

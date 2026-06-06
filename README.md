@@ -99,3 +99,7 @@ Route::get('/', function () {
 
 ```
 
+### Instalar paquete de laravel lang
+
+composer require laravel-lang/lang --dev
+php artisan lang:publish es
