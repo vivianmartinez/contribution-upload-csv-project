@@ -57,3 +57,45 @@ If you discover a security vulnerability within Laravel, please send an e-mail t
 ## License
 
 The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+
+### Clonar repositorio para refactorizar el proyecto
+
+```
+git clone <URL_DEL_REPO>
+
+composer install
+npm install
+npm run build
+
+crear .env
+
+php artisan migrate
+
+php artisan key:generate
+
+Esto evita el clon completo del repo.
+
+composer config --global preferred-install dist
+```
+
+### Desvincular proyecto al del propietario para crear repositorio propio
+```
+git remote remove origin
+git remote add origin <URL_DE_TU_REPO>
+Crear rama local 
+git checkout -b refactor_project
+git add .
+git commit -m "Initial commit for refactor branch"
+git push -u origin refactor_project
+
+```
+
+### Opción con closure para redireccionar al login desde la ruta raíz /
+
+```
+Route::get('/', function () {
+    return redirect()->route('login');
+});
+
+```
+
