@@ -11,6 +11,8 @@
     <!-- Fonts -->
     <link rel="stylesheet" href="https://bunny.net">
 
+    <link rel="stylesheet" href="{{ asset('css/global.css') }}">
+
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" integrity="sha512-omgYk..." crossorigin="anonymous" referrerpolicy="no-referrer" />
     <script src="{{ asset('js/login.js') }}"></script>

@@ -11,6 +11,7 @@
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" integrity="sha512-omgYk..." crossorigin="anonymous" referrerpolicy="no-referrer" />
 
+    <link rel="stylesheet" href="{{ asset('css/global.css') }}">
 
     <!--  Vite(CSS y JS) -->
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -65,8 +66,6 @@
                     class="block px-4 py-2 text-gray-700 hover:bg-gray-100">
                     Mi perfil
                 </a>
-
-
                 <a href="#"
                     class="block px-4 py-2 text-gray-700 hover:bg-gray-100">
                     Configuración

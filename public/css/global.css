@@ -1,32 +1,35 @@
+
 body {
-  font-family:'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+  font-family: 'Inter', sans-serif;
   background: #cae9f0;
-  margin: 0 !important;
-  padding: 0 !important;
-  height: 100% !important;
+  margin: 0;
+  padding: 0;
+  height: 100%;
 }
 
+
+/* Contenedores genéricos */
 .contenedor_inicio {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center; 
-  background: white;
-  padding: 20px;
-  border-radius: 10px;
-  box-shadow: 0 3px 6px rgba(0,0,0,0.2);
-  width: 500px;
+  justify-content: center;
+  background: #ffffff;
+  padding: 15px 30px 25px 30px; /* top reducido */
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  width: 250px;
   text-align: center;
-  border: 2px solid rgb(180, 180, 180);
-  margin: calc((100vh - 70px - 260px) / 2) auto 0 auto;
+  margin: 80px auto 0 auto;
 }
 
-/* Ocultamos el input real */
+
+/* Ocultar input real */
 .entrada_archivo {
   display: none;
 }
 
-/* BOTÓN DINÁMICO (estado inicial: subir archivo) */
+/* ===== BOTÓN DINÁMICO ===== */
 .boton-dinamico {
   background: #F7EFA2;
   color: #333;
@@ -48,17 +51,17 @@ body {
   background: #f3e98d;
 }
 
-/* Icono dentro del botón */
 .boton-dinamico svg {
   width: 18px;
   height: 18px;
   fill: #333;
 }
-.alerta-error{
+
+/* ===== ERRORES ===== */
+.alerta-error,
+.error {
   color: red;
   font-weight: bold;
   font-style: italic;
-  display: block;     
-  margin-top: 15px;    
-  text-align: center; 
+  text-align: center;
 }
