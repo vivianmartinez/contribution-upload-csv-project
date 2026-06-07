@@ -187,28 +187,23 @@
                         <input type="hidden" name="tab" :value="tab">
 
                         <!-- BOTÓN ÚNICO -->
-                        <!-- <div x-data="{ loading: false }">
-                            <button
-                                type="submit"
-                                @click=""
-                                :disabled="loading"
-                                class="w-full mt-6 text-gray-800 py-2 rounded-lg font-semibold flex items-center justify-center gap-2 transition disabled:opacity-70"
-                                style="background-color: #F9E79F;">
-                                <span x-show="!loading" x-text="tab === 'login' ? 'Iniciar Sesión' : 'Registrarse'"></span>
-
-                                <span x-show="loading" x-cloak>
-                                    <x-spinner />
-                                </span>
-                            </button>
-                        </div> -->
-
-                        <button
+                        <!-- <button
                             type="submit"
                             class="w-full mt-6 text-gray-800 py-2 rounded-lg font-semibold flex items-center justify-center gap-2 transition"
                             style="background-color: #F9E79F;">
                             <span x-text="tab === 'login' ? 'Iniciar Sesión' : 'Registrarse'"></span>
-                        </button>
+                        </button> -->
+                        <button
+                            type="submit"
+                            class="submit-btn w-full mt-6 text-gray-800 py-2 rounded-lg font-semibold flex items-center justify-center gap-2 transition"
+                            style="background-color: #F9E79F;">
 
+                            <span class="btn-text" x-text="tab === 'login' ? 'Iniciar Sesión' : 'Registrarse'"></span>
+
+                            <span class="btn-spinner hidden">
+                                <x-spinner />
+                            </span>
+                        </button>
                     </form>
                 </div>
             </div>

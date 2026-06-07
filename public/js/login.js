@@ -20,4 +20,22 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    const form = document.querySelector('form');
+    const btn = document.querySelector('.submit-btn');
+
+    if (form && btn) {
+        form.addEventListener('submit', () => {
+
+            const text = btn.querySelector('.btn-text');
+            const spinner = btn.querySelector('.btn-spinner');
+
+            if (text && spinner) {
+                text.classList.add('hidden');
+                spinner.classList.remove('hidden');
+            }
+
+            btn.disabled = true;
+        });
+    }
+
 });
